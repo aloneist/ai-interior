@@ -60,13 +60,14 @@ export default function Home() {
     });
 
     const data = await res.json();
-    console.log("TRANSFORM RESPONSE:", data);
 
-    const generatedUrl =
-      data.output?.[0]?.url || data.output?.[0];
+    if (!data.output) {
+      alert("이미지 생성 실패");
+      setLoading(false);
+      return;
+    }
 
-    setResultImage(generatedUrl);
-    setLoading(false);
+   setResultImage(data.output);
   };
 
   return (

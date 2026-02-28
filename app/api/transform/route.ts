@@ -1,33 +1,66 @@
 import Replicate from "replicate";
 
 const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN!,
+  auth: process.env.REPLICATE_API_TOKEN,
 });
 
 export async function POST(req: Request) {
-  const { imageUrl, prompt } = await req.json();
-
   try {
-    const output = await replicate.run(
-      "stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc",
+    const body = await req.json();
+    const imageUrl: string | undefined = body.imageUrl;
+    const prompt: string | undefined = body.prompt;
+
+    if (!imageUrl || !prompt) {
+      return Response.json(
+        { error: "imageUrl and prompt are required" },
+        { status: 400 }
+      );
+    }
+
+    const rawOutput = await replicate.run(
+      "lucataco/sdxl-controlnet",
       {
         input: {
-          prompt: prompt,
           image: imageUrl,
-          strength: 0.7,
+          prompt: `professional interior photography, ultra realistic, ${prompt}`,
+          negative_prompt:
+            "low quality, blurry, distorted, unrealistic proportions",
+          controlnet_type: "canny",
+          controlnet_conditioning_scale: 0.8,
+          strength: 0.75,
           num_inference_steps: 30,
           guidance_scale: 7.5,
         },
       }
     );
 
-    console.log("REPLICATE OUTPUT:", output);
+    console.log("RAW OUTPUT:", rawOutput);
 
-    return Response.json({ output });
+    // ✅ 타입 안정 처리
+    let imageResult: string | null = null;
+
+    if (Array.isArray(rawOutput)) {
+      const first = rawOutput[0] as any;
+
+      if (typeof first === "string") {
+        imageResult = first;
+      } else if (first?.url) {
+        imageResult = first.url;
+      }
+    }
+
+    if (!imageResult) {
+      return Response.json(
+        { error: "Image generation failed" },
+        { status: 500 }
+      );
+    }
+
+    return Response.json({ output: imageResult });
   } catch (error) {
     console.error("TRANSFORM ERROR:", error);
     return Response.json(
-      { error: "Failed to transform image" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }
