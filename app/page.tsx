@@ -6,6 +6,8 @@ export default function Home() {
   const [image, setImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [resultImage, setResultImage] = useState<string | null>(null);
 
   const handleUpload = async () => {
     if (!image) return;
@@ -26,6 +28,24 @@ export default function Home() {
 
     setLoading(false);
   };
+
+  const handleTransform = async () => {
+  if (!imageUrl) return;
+
+  const res = await fetch("/api/transform", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      imageUrl,
+      prompt,
+    }),
+  });
+
+  const data = await res.json();
+  setResultImage(data.output[0]);
+};
 
 
   return (
@@ -53,6 +73,31 @@ export default function Home() {
       >
         {loading ? "Uploading..." : "Upload"}
       </button>
+
+      <input
+        type="text"
+        placeholder="예: modern minimalist interior"
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        className="border p-2 mt-4 w-full"
+      />
+
+      <button
+        onClick={handleTransform}
+        className="mt-4 bg-blue-600 text-white px-4 py-2"
+      >
+        Transform
+      </button>
+
+      {resultImage && (
+        <img
+          src={resultImage}
+          alt="transformed"
+          className="mt-6 rounded-lg"
+        />
+      )}
+
+      
     </main>
   );
 }
