@@ -4,6 +4,7 @@ import { useState } from "react";
 
 export default function Home() {
   const [image, setImage] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const handleUpload = async () => {
     if (!image) return;
@@ -18,6 +19,7 @@ export default function Home() {
 
     const data = await res.json();
     console.log(data);
+    setImageUrl(data.secure_url);
     alert("Upload finished. Check console.");
   };
 
@@ -28,8 +30,17 @@ export default function Home() {
       <input
         type="file"
         onChange={(e) => setImage(e.target.files?.[0] || null)}
+        
       />
 
+      {imageUrl && (
+        <img
+          src={imageUrl}
+          alt="uploaded"
+          className="mt-4 rounded-lg w-80"
+        />
+      )}
+      
       <button
         onClick={handleUpload}
         className="mt-4 bg-black text-white px-4 py-2"
