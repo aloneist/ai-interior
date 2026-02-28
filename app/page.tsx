@@ -30,8 +30,6 @@ export default function Home() {
   };
 
   const handleTransform = async () => {
-  if (!imageUrl) return;
-
   const res = await fetch("/api/transform", {
     method: "POST",
     headers: {
@@ -43,7 +41,12 @@ export default function Home() {
   });
 
   const data = await res.json();
-  setResultImage(data.output[0]);
+  console.log("TRANSFORM RESPONSE:", data);
+
+  const generatedUrl =
+    data.output?.[0]?.url || data.output?.[0];
+    
+  setResultImage(generatedUrl);
 };
 
 
