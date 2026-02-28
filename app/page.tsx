@@ -5,9 +5,12 @@ import { useState } from "react";
 export default function Home() {
   const [image, setImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleUpload = async () => {
     if (!image) return;
+
+    setLoading(true);
 
     const formData = new FormData();
     formData.append("file", image);
@@ -18,10 +21,12 @@ export default function Home() {
     });
 
     const data = await res.json();
-    console.log(data);
     setImageUrl(data.secure_url);
-    alert("Upload finished. Check console.");
+    setImage(null);
+
+    setLoading(false);
   };
+
 
   return (
     <main className="p-10">
@@ -40,12 +45,13 @@ export default function Home() {
           className="mt-4 rounded-lg w-80"
         />
       )}
-      
+
       <button
         onClick={handleUpload}
+        disabled={loading}
         className="mt-4 bg-black text-white px-4 py-2"
       >
-        Upload
+        {loading ? "Uploading..." : "Upload"}
       </button>
     </main>
   );
