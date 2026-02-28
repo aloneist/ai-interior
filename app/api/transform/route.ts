@@ -1,7 +1,7 @@
 import Replicate from "replicate";
 
 const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
+  auth: process.env.REPLICATE_API_TOKEN!,
 });
 
 export async function POST(req: Request) {
@@ -13,13 +13,22 @@ export async function POST(req: Request) {
       {
         input: {
           prompt: prompt,
+          image: imageUrl,
+          strength: 0.7,
+          num_inference_steps: 30,
+          guidance_scale: 7.5,
         },
       }
     );
 
+    console.log("REPLICATE OUTPUT:", output);
+
     return Response.json({ output });
   } catch (error) {
-    console.error(error);
-    return Response.json({ error: "Failed to transform image" }, { status: 500 });
+    console.error("TRANSFORM ERROR:", error);
+    return Response.json(
+      { error: "Failed to transform image" },
+      { status: 500 }
+    );
   }
 }
