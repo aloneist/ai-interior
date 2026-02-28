@@ -9,12 +9,10 @@ export async function POST(req: Request) {
 
   try {
     const output = await replicate.run(
-      "stability-ai/sdxl:latest",
+      "stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc",
       {
         input: {
-          image: imageUrl,
           prompt: prompt,
-          strength: 0.7,
         },
       }
     );
