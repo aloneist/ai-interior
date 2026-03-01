@@ -16,7 +16,7 @@ export async function generateImage(
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.STABILITY_API_KEY}`,
+        Authorization: `Bearer ${process.env.STABILITY_API_KEY!}`,
         Accept: "application/json",
       },
       body: formData,
