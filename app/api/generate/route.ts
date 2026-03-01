@@ -1,22 +1,27 @@
 import { generateImage } from "@/lib/stability";
-import { uploadTempImage } from "@/lib/cloudinary";
-import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const { prompt } = await req.json();
+    const formData = await req.formData();
 
-    const base64 = await generateImage(prompt);
+    const image = formData.get("image") as File;
+    const prompt = formData.get("prompt") as string;
 
-    const uploaded = await uploadTempImage(base64);
+    if (!image || !prompt) {
+      return new Response(
+        JSON.stringify({ error: "Image or prompt missing" }),
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json({ imageUrl: uploaded.secure_url });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json(
-      { error: "Image generation failed" },
+    const result = await generateImage(image, prompt);
+
+    return Response.json({ image: result });
+  } catch (error: any) {
+    console.error("Route Error:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
       { status: 500 }
     );
-    console.log(process.env.STABILITY_API_KEY);
   }
 }
