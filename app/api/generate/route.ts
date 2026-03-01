@@ -17,5 +17,6 @@ export async function POST(req: Request) {
       { error: "Image generation failed" },
       { status: 500 }
     );
+    console.log(process.env.STABILITY_API_KEY);
   }
 }
