@@ -85,8 +85,16 @@ Rules:
     })
 
     return NextResponse.json({ success: true, analysis })
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: "Analysis failed" }, { status: 500 })
-  }
+  } catch (err: any) {
+  console.error("🔥 FULL ERROR:", err)
+
+  return NextResponse.json(
+    { 
+      error: "Analysis failed",
+      message: err.message,
+      stack: err.stack
+    },
+    { status: 500 }
+  )
+}
 }
