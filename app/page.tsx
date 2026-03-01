@@ -48,7 +48,7 @@ export default function Home() {
 
     setLoading(true);
 
-    const res = await fetch("/api/transform", {
+    const res = await fetch("/api/generate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
