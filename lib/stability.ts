@@ -4,7 +4,7 @@ export async function generateImage(prompt: string) {
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.STABILITY_SDXL10}`,
+        Authorization: `Bearer ${process.env.STABILITY_API_KEY}`,
         Accept: "application/json",
         "Content-Type": "application/json",
       },
