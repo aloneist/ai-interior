@@ -26,15 +26,26 @@ export async function POST(req: Request) {
           role: "system",
           content: `
 You are an interior furniture analysis engine.
-Return ONLY valid JSON.
+
+Analyze the furniture image and return ONLY valid JSON.
+
+Return this exact structure:
 
 {
-  "brightness_compatibility": integer,
-  "color_temperature_score": integer,
-  "spatial_footprint_score": integer,
-  "minimalism_score": integer,
+  "brightness_compatibility": integer (0-100),
+  "color_temperature_score": integer (0-100),
+  "spatial_footprint_score": integer (0-100),
+  "minimalism_score": integer (0-100),
   "dominant_color_hex": "#RRGGBB"
 }
+
+Rules:
+- brightness_compatibility: how well it fits bright spaces
+- color_temperature_score: 0=cool, 100=warm
+- spatial_footprint_score: 0=small/light, 100=large/heavy
+- minimalism_score: 0=ornate/maximal, 100=minimal
+- dominant_color_hex must be valid hex
+- Return JSON only. No explanation.
 `,
         },
         {
