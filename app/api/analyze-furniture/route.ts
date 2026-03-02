@@ -13,6 +13,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+function makeProductKey(input: {
+  name?: string
+  brand?: string
+  category?: string
+}) {
+  const norm = (v?: string) =>
+    (v ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+
+  return `${norm(input.brand)}|${norm(input.name)}|${norm(input.category)}`
+}
+
 function clampScore(v: any) {
   const n = Number(v)
   if (!Number.isFinite(n)) return 50
@@ -74,17 +88,25 @@ Rules:
 
     const analysis = JSON.parse(response.choices[0].message.content!)
 
-    const { data: furniture } = await supabase
+    const product_key = makeProductKey({ name, brand, category })
+
+    const { data: furniture, error: upsertError } = await supabase
       .from("furniture")
-      .insert({
-        name,
-        brand,
-        category,
-        price,
-        image_url: imageUrl,
-      })
+      .upsert(
+        {
+          product_key,
+          name,
+          brand,
+          category,
+          price,
+          image_url: imageUrl,
+        },
+        { onConflict: "product_key" }
+      )
       .select()
       .single()
+
+if (upsertError) throw upsertError
 
     const normalized = {
       brightness_compatibility: clampScore(analysis.brightness_compatibility),
@@ -96,16 +118,20 @@ Rules:
       dominant_color_hex: analysis.dominant_color_hex,
     }
 
-    await supabase.from("furniture_vectors").insert({
-      furniture_id: furniture.id,
-      brightness_compatibility: normalized.brightness_compatibility,
-      color_temperature_score: normalized.color_temperature_score,
-      spatial_footprint_score: normalized.spatial_footprint_score,
-      minimalism_score: normalized.minimalism_score,
-      contrast_score: normalized.contrast_score,
-      colorfulness_score: normalized.colorfulness_score,
-      dominant_color_hex: normalized.dominant_color_hex,
-    })
+    await supabase.from("furniture_vectors").upsert(
+  {
+    furniture_id: furniture.id,
+    vector_version: "v1",
+    brightness_compatibility: normalized.brightness_compatibility,
+    color_temperature_score: normalized.color_temperature_score,
+    spatial_footprint_score: normalized.spatial_footprint_score,
+    minimalism_score: normalized.minimalism_score,
+    contrast_score: normalized.contrast_score,
+    colorfulness_score: normalized.colorfulness_score,
+    dominant_color_hex: normalized.dominant_color_hex,
+  },
+  { onConflict: "furniture_id,vector_version" }
+)
 
     return NextResponse.json({ success: true, analysis })
   } catch (err: any) {
