@@ -13,6 +13,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+function clampScore(v: any) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return 50
+  return Math.max(0, Math.min(100, Math.round(n)))
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -26,26 +32,31 @@ export async function POST(req: Request) {
           role: "system",
           content: `
 You are an interior furniture analysis engine.
+Return ONLY valid JSON. No explanation.
 
-Analyze the furniture image and return ONLY valid JSON.
-
-Return this exact structure:
+Return this exact structure with integers 0-100:
 
 {
-  "brightness_compatibility": integer (0-100),
-  "color_temperature_score": integer (0-100),
-  "spatial_footprint_score": integer (0-100),
-  "minimalism_score": integer (0-100),
+  "brightness_compatibility": integer,
+  "color_temperature_score": integer,
+  "spatial_footprint_score": integer,
+  "minimalism_score": integer,
+  "contrast_score": integer,
+  "colorfulness_score": integer,
   "dominant_color_hex": "#RRGGBB"
 }
 
-Rules:
-- brightness_compatibility: how well it fits bright spaces
+Definitions:
+- brightness_compatibility: fits bright rooms (0=only dark rooms, 100=great in bright rooms)
 - color_temperature_score: 0=cool, 100=warm
-- spatial_footprint_score: 0=small/light, 100=large/heavy
+- spatial_footprint_score: 0=small/light, 100=large/visually heavy
 - minimalism_score: 0=ornate/maximal, 100=minimal
-- dominant_color_hex must be valid hex
-- Return JSON only. No explanation.
+- contrast_score: 0=low contrast (soft), 100=high contrast (bold)
+- colorfulness_score: 0=neutral/monochrome, 100=very colorful
+
+Rules:
+- All scores must be integers 0..100
+- dominant_color_hex must be valid 7-char hex like #A1B2C3
 `,
         },
         {
@@ -75,13 +86,25 @@ Rules:
       .select()
       .single()
 
+    const normalized = {
+      brightness_compatibility: clampScore(analysis.brightness_compatibility),
+      color_temperature_score: clampScore(analysis.color_temperature_score),
+      spatial_footprint_score: clampScore(analysis.spatial_footprint_score),
+      minimalism_score: clampScore(analysis.minimalism_score),
+      contrast_score: clampScore(analysis.contrast_score),
+      colorfulness_score: clampScore(analysis.colorfulness_score),
+      dominant_color_hex: analysis.dominant_color_hex,
+    }
+
     await supabase.from("furniture_vectors").insert({
       furniture_id: furniture.id,
-      brightness_compatibility: analysis.brightness_compatibility,
-      color_temperature_score: analysis.color_temperature_score,
-      spatial_footprint_score: analysis.spatial_footprint_score,
-      minimalism_score: analysis.minimalism_score,
-      dominant_color_hex: analysis.dominant_color_hex,
+      brightness_compatibility: normalized.brightness_compatibility,
+      color_temperature_score: normalized.color_temperature_score,
+      spatial_footprint_score: normalized.spatial_footprint_score,
+      minimalism_score: normalized.minimalism_score,
+      contrast_score: normalized.contrast_score,
+      colorfulness_score: normalized.colorfulness_score,
+      dominant_color_hex: normalized.dominant_color_hex,
     })
 
     return NextResponse.json({ success: true, analysis })
