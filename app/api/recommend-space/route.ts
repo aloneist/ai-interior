@@ -209,10 +209,24 @@ Return format:
       (explainJson.reasons ?? []).map((r: any) => [r.product_key, r.reason_short])
     )
 
-    const top3WithReasons = top3.map((x: any) => ({
-      ...x,
-      reason_short: reasonMap.get(x.product_key) ?? "공간 톤과 분위기에 무난하게 어울려요.",
-    }))
+    const sanitize = (s: any) => {
+      if (typeof s !== "string") return null
+      const t = s.replace(/\s+/g, " ").trim()
+      // 너무 짧거나 끝이 어색하면 null 처리해서 fallback 사용
+      if (t.length < 12) return null
+      // 문장 끝이 끊긴 느낌이면 fallback (예: "밝은 톤의")
+      if (/의$/.test(t)) return null
+      return t
+    }
+
+    const top3WithReasons = top3.map((x: any) => {
+      const rawReason = reasonMap.get(x.product_key)
+      const cleaned = sanitize(rawReason)
+      return {
+        ...x,
+        reason_short: cleaned ?? "톤·대비·미니멀 지수 기준으로 무난해요.",
+      }
+    })
 
     return NextResponse.json({
       success: true,
