@@ -17,6 +17,7 @@ type MVPResponse = {
   trust_score: number
   trust_note: string | null
   recommendations: Array<{
+    request_id: string
     id: string
     name: string
     brand: string | null
@@ -181,8 +182,19 @@ export default function Home() {
 
                   <button
                     className="mt-3 w-full border rounded py-2 text-sm"
-                    disabled
-                    title="다음 단계: 제휴 링크 연결"
+                    onClick={async () => {
+                      // ✅ 클릭 로그 기록 (1줄 핵심 + 요청)
+                      await fetch("/api/log-click", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          space_id: (data as any).space.id,
+                          furniture_id: r.id,
+                        }),
+                      })
+
+                      alert("클릭 로그 저장됨 (구매 링크는 추후 연결)")
+                    }}
                   >
                     구매 링크 (추후)
                   </button>

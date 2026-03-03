@@ -29,11 +29,19 @@ function clamp01to100(v: number) {
   return Math.max(0, Math.min(100, Math.round(v)))
 }
 
-function calcTrustScore(input: { density: number; contrast: number; colorfulness: number }) {
+function calcTrustScore(input: {
+  brightness: number
+  density: number
+  contrast: number
+  colorfulness: number
+}) {
   let trust = 100
+
   trust -= Math.max(0, input.density - 70) * 1.2
   trust -= Math.max(0, input.colorfulness - 80) * 0.8
   trust -= Math.max(0, input.contrast - 80) * 0.8
+  trust -= Math.max(0, 45 - input.brightness) * 1.5
+
   return clamp01to100(trust)
 }
 
@@ -64,6 +72,7 @@ function labelRoom(v: {
 export async function POST(req: Request) {
   try {
     const { imageUrl } = await req.json()
+    const request_id = crypto.randomUUID()
 
     if (!imageUrl) {
       return NextResponse.json({ error: "imageUrl is required" }, { status: 400 })
@@ -154,7 +163,7 @@ Rules:
     const contrast = spaceNormalized.contrast_score
     const colorfulness = spaceNormalized.colorfulness_score
 
-    const trust_score = calcTrustScore({ density, contrast, colorfulness })
+    const trust_score = calcTrustScore({ brightness, density, contrast, colorfulness })
     const trust_note = trustNote(trust_score)
 
     const weights = {
@@ -216,6 +225,20 @@ Rules:
     }
 
     const top3 = deduped.slice(0, 3)
+
+        // ✅ 추천 노출 로그 저장 (Top3)
+    await supabase.from("recommendations").insert(
+      top3.map((x: any) => ({
+        request_id,
+        event_source: "web",
+        space_id: spaceRow.id,
+        furniture_id: x.id,
+        compatibility_score: x.recommendation_score,
+        clicked: false,
+        saved: false,
+        purchased: false,
+      }))
+    )
 
     // -----------------------
     // 4) 추천 이유 1줄 생성 (Top3만, OpenAI 1회)
@@ -296,6 +319,7 @@ Return format:
     // -----------------------
     return NextResponse.json({
       success: true,
+      request_id,
       space: spaceRow,
       analysis: spaceNormalized,
       trust_score,
