@@ -188,7 +188,7 @@ export default function Home() {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
-                          space_id: (data as any).space.id,
+                          request_id: (data as any).request_id,
                           furniture_id: r.id,
                         }),
                       })

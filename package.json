@@ -6,7 +6,9 @@
     "dev": "node scripts/bootstrap-env.mjs && next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "reset": "rm -rf node_modules .next package-lock.json && npm install",
+    "dev:reset": "rm -rf node_modules .next package-lock.json && npm install && next dev"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
