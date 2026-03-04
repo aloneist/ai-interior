@@ -72,7 +72,7 @@ export default function Home() {
       <h1 className="text-2xl font-bold">AI 인테리어 분석 + 추천 MVP</h1>
       <p className="text-sm text-gray-600 mt-1">
         이미지 URL → 공간 분석 점수 + 신뢰도 + 추천 3개
-      </p>
+      </p>  
 
       <div className="mt-6 flex gap-2">
         <input
