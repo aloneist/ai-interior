@@ -34,6 +34,11 @@ function clampScore(v: any) {
 }
 
 export async function POST(req: Request) {
+  const token = req.headers.get("x-admin-token")
+    if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
   try {
     const body = await req.json()
     const { name, brand, category, price, imageUrl } = body

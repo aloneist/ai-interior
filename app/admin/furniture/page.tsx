@@ -10,6 +10,7 @@ type AnalyzeResult = {
 }
 
 export default function AdminFurniture() {
+  const [adminToken, setAdminToken] = useState("")
   const [name, setName] = useState("")
   const [brand, setBrand] = useState("")
   const [category, setCategory] = useState<"sofa" | "bed" | "chair" | "table" | "storage" | "decor">("sofa")
@@ -31,7 +32,10 @@ export default function AdminFurniture() {
     try {
       const res = await fetch("/api/analyze-furniture", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-admin-token": adminToken,
+        },
         body: JSON.stringify({
           name: name.trim(),
           brand: brand.trim() || null,
