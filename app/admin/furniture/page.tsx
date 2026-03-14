@@ -118,6 +118,16 @@ export default function AdminFurniture() {
         </div>
 
         <div>
+          <label className="text-sm text-gray-600">관리자 토큰</label>
+          <input
+            className="border rounded px-3 py-2 w-full"
+            value={adminToken}
+            onChange={(e) => setAdminToken(e.target.value)}
+            placeholder="관리자 토큰 입력"
+          />
+        </div>
+
+        <div>
           <label className="text-sm text-gray-600">이미지 URL (필수, 공개 접근 가능 URL)</label>
           <input
             className="border rounded px-3 py-2 w-full"

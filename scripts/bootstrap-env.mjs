@@ -11,6 +11,7 @@ const optional = [
   "CLOUDINARY_NAME",
   "CLOUDINARY_KEY",
   "CLOUDINARY_SECRET",
+  "ADMIN_TOKEN",
 ];
 
 const missingRequired = required.filter((k) => !process.env[k]);
