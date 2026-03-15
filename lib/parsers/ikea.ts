@@ -50,19 +50,136 @@ function extractPrice(html: string): number | null {
   return null;
 }
 
+function extractImageUrl(html: string): string | null {
+  if (!html) return null;
+
+  // 1순위: og:image 메타 태그
+  const ogImageMatch = html.match(
+    /<meta\s+property="og:image"\s+content="([^"]+)"/i
+  );
+
+  if (ogImageMatch?.[1]) {
+    return ogImageMatch[1].trim();
+  }
+
+  // 2순위: 일반 img 태그
+  const imgSrcMatch = html.match(/<img[^>]+src="([^"]+)"/i);
+
+  if (imgSrcMatch?.[1]) {
+    return imgSrcMatch[1].trim();
+  }
+
+  return null;
+}
+
+function extractDescription(html: string): string | null {
+  if (!html) return null;
+
+  const metaDescriptionMatch = html.match(
+    /<meta\s+name="description"\s+content="([^"]+)"/i
+  );
+
+  if (!metaDescriptionMatch?.[1]) return null;
+
+  const content = metaDescriptionMatch[1].trim();
+  if (!content) return null;
+
+  const parts = content.split(',');
+
+  if (parts.length >= 2) {
+    const description = parts.slice(1).join(',').trim();
+    return description || null;
+  }
+
+  return null;
+}
+
+function normalizeCategory(text: string): string {
+  const value = text.toLowerCase();
+
+  if (
+    value.includes('sofa') ||
+    value.includes('소파')
+  ) {
+    return 'sofa';
+  }
+
+  if (
+    value.includes('chair') ||
+    value.includes('의자') ||
+    value.includes('암체어')
+  ) {
+    return 'chair';
+  }
+
+  if (
+    value.includes('table') ||
+    value.includes('테이블')
+  ) {
+    return 'table';
+  }
+
+  if (
+    value.includes('storage') ||
+    value.includes('수납') ||
+    value.includes('선반') ||
+    value.includes('서랍')
+  ) {
+    return 'storage';
+  }
+
+  if (
+    value.includes('bed') ||
+    value.includes('침대')
+  ) {
+    return 'bed';
+  }
+
+  if (
+    value.includes('lamp') ||
+    value.includes('조명')
+  ) {
+    return 'lighting';
+  }
+
+  if (
+    value.includes('desk') ||
+    value.includes('책상')
+  ) {
+    return 'desk';
+  }
+
+  if (
+    value.includes('decor') ||
+    value.includes('장식')
+  ) {
+    return 'decor';
+  }
+
+  return 'unknown';
+}
+
 export function parseIkeaPayload(raw: any): ParsedFurnitureProduct {
   const html = raw?.html_snippet ?? '';
   const productName = extractProductName(html);
   const price = extractPrice(html);
+  const imageUrl = extractImageUrl(html);
+  const description = extractDescription(html);
+
+  const categorySource = [productName, description]
+    .filter(Boolean)
+    .join(' ');
+
+  const category = normalizeCategory(categorySource);
 
   return {
     product_name: productName,
     brand: 'IKEA',
-    category: null,
+    category, 
     price,
     currency: 'KRW',
-    image_url: null,
-    description: null,
+    image_url: imageUrl,
+    description,
     color: null,
     material: null,
     width_cm: null,
@@ -73,3 +190,4 @@ export function parseIkeaPayload(raw: any): ParsedFurnitureProduct {
     },
   };
 }
+

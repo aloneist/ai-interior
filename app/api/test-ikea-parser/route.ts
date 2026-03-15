@@ -11,6 +11,10 @@ export async function GET() {
             name="description"
             content="GLOSTAD 글로스타드 2인용소파, 크니사 다크그레이 GLOSTAD 글로스타드 소파는 구매하고 운반하여 조립하면 바로 사용할 수 있어요."
           />
+          <meta
+            property="og:image"
+            content="https://www.ikea.com/kr/ko/images/products/glostad-sofa-dark-grey.jpg"
+          />
         </head>
         <body>
           <div>₩199,000</div>
