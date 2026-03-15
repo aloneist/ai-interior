@@ -3,7 +3,7 @@ export const runtime = "nodejs"
 import { NextResponse } from "next/server"
 import OpenAI from "openai"
 import { createClient } from "@supabase/supabase-js"
-
+import { parseIkeaPayload } from "@/lib/parsers/ikea"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -26,10 +26,12 @@ function normalizeUrl(url: string) {
 function detectSourceSite(url: string) {
   try {
     const host = new URL(url).hostname.toLowerCase()
+
     if (host.includes("ikea")) return "ikea"
     if (host.includes("todayhouse")) return "todayhouse"
     if (host.includes("hanssem")) return "hanssem"
     if (host.includes("livart")) return "livart"
+
     return host
   } catch {
     return "unknown"
@@ -42,8 +44,11 @@ function parseNumberOrNull(v: any) {
 }
 
 export async function POST(req: Request) {
+  let importJobId: string | null = null
+
   try {
     const token = req.headers.get("x-admin-token")
+
     if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -51,7 +56,10 @@ export async function POST(req: Request) {
     const { sourceUrl } = await req.json()
 
     if (!sourceUrl) {
-      return NextResponse.json({ error: "sourceUrl is required" }, { status: 400 })
+      return NextResponse.json(
+        { error: "sourceUrl is required" },
+        { status: 400 }
+      )
     }
 
     const normalizedUrl = normalizeUrl(sourceUrl)
@@ -86,12 +94,10 @@ export async function POST(req: Request) {
           role: "system",
           content: `
 You are a commerce product extraction engine.
-
 Extract structured product data from the given product page HTML.
 Return ONLY valid JSON. No explanation.
 
 Return this exact structure:
-
 {
   "extracted_name": string | null,
   "extracted_brand": string | null,
@@ -121,7 +127,7 @@ Rules:
 - extracted_color_options should contain color names only.
 - extracted_option_summaries should be short human-readable option summaries.
 - Do not invent data. If unsure, return null or [].
-`,
+          `,
         },
         {
           role: "user",
@@ -155,10 +161,12 @@ Rules:
       extracted_size_label: extracted.extracted_size_label ?? null,
       extracted_capacity_label: extracted.extracted_capacity_label ?? null,
       extracted_image_urls: extracted.extracted_image_urls ?? [],
-      extracted_source_variant_ids: extracted.extracted_source_variant_ids ?? [],
+      extracted_source_variant_ids:
+        extracted.extracted_source_variant_ids ?? [],
       extracted_option_summaries: extracted.extracted_option_summaries ?? [],
       extracted_source_site: extracted.extracted_source_site ?? sourceSite,
-      extracted_affiliate_url: extracted.extracted_affiliate_url ?? normalizedUrl,
+      extracted_affiliate_url:
+        extracted.extracted_affiliate_url ?? normalizedUrl,
       extracted_confidence: parseNumberOrNull(extracted.extracted_confidence),
       extraction_notes: extracted.extraction_notes ?? null,
       status: "pending",
@@ -172,12 +180,87 @@ Rules:
 
     if (error) throw error
 
+    importJobId = data.id
+
+    // 4) parser + furniture_products 저장
+    const parsed = parseIkeaPayload(data.raw_payload)
+
+    const productPayload = {
+      source_site: data.source_site,
+      source_url: data.source_url,
+      product_name: parsed.product_name ?? data.extracted_name ?? "unknown product",
+      brand: parsed.brand ?? data.extracted_brand ?? null,
+      category: parsed.category ?? data.extracted_category ?? "unknown",
+      price: parsed.price ?? data.extracted_price ?? null,
+      currency: parsed.currency ?? "KRW",
+      image_url: parsed.image_url ?? data.extracted_image_urls?.[0] ?? null,
+      product_url: data.source_url,
+      description: parsed.description ?? null,
+      color: parsed.color ?? null,
+      material: parsed.material ?? data.extracted_material ?? null,
+      width_cm: parsed.width_cm ?? data.extracted_width_cm ?? null,
+      depth_cm: parsed.depth_cm ?? data.extracted_depth_cm ?? null,
+      height_cm: parsed.height_cm ?? data.extracted_height_cm ?? null,
+      metadata_json: {
+        import_job_id: data.id,
+        raw_preview: data.raw_payload?.html_snippet?.slice(0, 300) ?? "",
+        parser_price: parsed.price ?? null,
+        extracted_price: data.extracted_price ?? null,
+        extracted_image_urls: data.extracted_image_urls ?? [],
+        extracted_color_options: data.extracted_color_options ?? [],
+        extracted_option_summaries: data.extracted_option_summaries ?? [],
+        extracted_confidence: data.extracted_confidence ?? null,
+        extraction_notes: data.extraction_notes ?? null,
+      },
+      status: "active",
+      updated_at: new Date().toISOString(), 
+    }
+
+    const { data: savedProduct, error: saveError } = await supabase
+      .from("furniture_products")
+      .upsert(productPayload, { onConflict: "source_url" })
+      .select()
+      .single()
+
+    if (saveError) throw saveError
+
+    // 5) import_jobs 상태 완료 처리
+    const { error: statusUpdateError } = await supabase
+      .from("import_jobs")
+      .update({
+        status: "completed",
+        review_note: null,
+      })
+      .eq("id", data.id)
+
+    if (statusUpdateError) throw statusUpdateError
+
     return NextResponse.json({
       success: true,
-      import_job: data,
+      import_job: {
+        ...data,
+        status: "completed",
+        review_note: null,
+      },
+      parsed_product: savedProduct,
     })
   } catch (err: any) {
     console.error("IMPORT PRODUCT ERROR:", err)
+
+    if (importJobId) {
+      try {
+        await supabase
+          .from("import_jobs")
+          .update({
+            status: "failed",
+            review_note: err?.message ?? "Unknown import error",
+          })
+          .eq("id", importJobId)
+      } catch (statusErr) {
+        console.error("FAILED TO UPDATE import_jobs STATUS:", statusErr)
+      }
+    }
+
     return NextResponse.json(
       { error: "Import product failed", message: err.message },
       { status: 500 }
