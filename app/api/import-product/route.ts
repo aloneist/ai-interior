@@ -186,14 +186,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const fullHtml = await pageRes.text();
-    const htmlSnippet = fullHtml.slice(0, 40000);
-    const htmlLength = fullHtml.length;
-    const hasDimensionKeyword = detectDimensionKeyword(fullHtml);
+    const html = await pageRes.text();
+    const htmlSnippet = html.slice(0, 40000);
+    const htmlLength = html.length;
+    const hasDimensionKeyword = detectDimensionKeyword(html);
 
-    // 2) 사이트 파서에는 full html 전달
+    // 2) 사이트 파서에는 html 전달
     const parserResult = parseSourcePayload(sourceSite, {
-      html: fullHtml,
+      html: html,
       html_snippet: htmlSnippet,
       source_url: normalizedUrl,
       source_site: sourceSite,
@@ -261,11 +261,24 @@ Rules:
       aiRes.choices[0].message.content || "{}"
     );
 
+    const parsed: ParsedFurnitureProduct | null =
+        sourceSite === "ikea"
+          ? parseIkeaPayload({
+              full_html: html,
+              html_snippet: htmlSnippet,
+              raw_payload: {
+                full_html: html,
+                html_snippet: htmlSnippet,
+              },
+            })
+          : null
+
     // 4) import_jobs 저장
     const importPayload = {
       source_site: sourceSite,
       source_url: normalizedUrl,
-      raw_payload: {
+      raw_payload: { 
+        full_html: html,
         html_snippet: htmlSnippet,
         html_length: htmlLength,
         has_dimension_keyword: hasDimensionKeyword,
@@ -276,9 +289,17 @@ Rules:
       extracted_category: extracted.extracted_category ?? null,
       extracted_price: parseNumberOrNull(extracted.extracted_price),
       extracted_material: extracted.extracted_material ?? null,
-      extracted_width_cm: parseNumberOrNull(extracted.extracted_width_cm),
-      extracted_depth_cm: parseNumberOrNull(extracted.extracted_depth_cm),
-      extracted_height_cm: parseNumberOrNull(extracted.extracted_height_cm),
+      extracted_width_cm:
+        parseNumberOrNull(parsed?.width_cm) ??
+        parseNumberOrNull(extracted.extracted_width_cm),
+
+      extracted_depth_cm:
+        parseNumberOrNull(parsed?.depth_cm) ??
+        parseNumberOrNull(extracted.extracted_depth_cm),
+
+      extracted_height_cm:
+        parseNumberOrNull(parsed?.height_cm) ??
+        parseNumberOrNull(extracted.extracted_height_cm),
       extracted_color_options: toStringArray(extracted.extracted_color_options),
       extracted_size_label: extracted.extracted_size_label ?? null,
       extracted_capacity_label: extracted.extracted_capacity_label ?? null,
