@@ -14,6 +14,36 @@ export type ParsedFurnitureProduct = {
   metadata_json: Record<string, any>;
 };
 
+const STRONGLY_EXCLUDED_DIMENSION_CONTEXTS = [
+  "포장",
+  "포장높이",
+  "포장 높이",
+  "포장치수",
+  "포장 치수",
+  "패키지",
+  "패키지 높이",
+  "박스",
+  "상자",
+  "배송",
+  "배송치수",
+  "배송 치수",
+];
+
+const WEAKLY_EXCLUDED_DIMENSION_CONTEXTS = [
+  "시트",
+  "좌석",
+  "팔걸이",
+  "등판",
+  "매트리스",
+  "서랍내부",
+  "내부",
+  "쿠션",
+  "다리",
+  "프레임 내부",
+  "헤드레스트",
+  "받침",
+];
+
 function decodeHtml(input: string): string {
   return input
     .replace(/&nbsp;/gi, " ")
@@ -26,14 +56,21 @@ function decodeHtml(input: string): string {
 
 function stripHtml(html: string): string {
   if (!html) return "";
+
   return decodeHtml(
     html
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+      .replace(/<script[\s\S]*?<\/script>/gi, "\n")
+      .replace(/<style[\s\S]*?<\/style>/gi, "\n")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, "\n")
+      .replace(
+        /<\/(p|div|li|tr|td|th|section|article|h1|h2|h3|h4|h5|h6)>/gi,
+        "\n"
+      )
+      .replace(/<br\s*\/?>/gi, "\n")
       .replace(/<[^>]+>/g, " ")
   )
-    .replace(/\s+/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{2,}/g, "\n")
     .trim();
 }
 
@@ -64,20 +101,20 @@ function extractProductName(html: string): string | null {
 function extractPrice(html: string): number | null {
   if (!html) return null;
 
-const patterns = [
-  /"price"\s*:\s*"?(\d[\d,]*)"?/i,
-  /₩\s*(\d[\d,]*)/i,
-  /KRW\s*(\d[\d,]*)/i,
-];
+  const patterns = [
+    /"price"\s*:\s*"?(\d[\d,]*)"?/i,
+    /₩\s*(\d[\d,]*)/i,
+    /KRW\s*(\d[\d,]*)/i,
+  ];
 
-for (const pattern of patterns) {
-  const match = html.match(pattern);
-  const raw = match?.[1];
-  if (!raw) continue;
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    const raw = match?.[1];
+    if (!raw) continue;
 
-  const value = Number(raw.replace(/[^\d]/g, ""));
-  if (Number.isFinite(value) && value > 0) return value;
-}
+    const value = Number(raw.replace(/[^\d]/g, ""));
+    if (Number.isFinite(value) && value > 0) return value;
+  }
 
   return null;
 }
@@ -113,14 +150,22 @@ function normalizeCategory(text: string): string {
   const value = text.toLowerCase();
 
   if (value.includes("sofa") || value.includes("소파")) return "sofa";
-  if (value.includes("chair") || value.includes("의자") || value.includes("암체어")) return "chair";
+  if (
+    value.includes("chair") ||
+    value.includes("의자") ||
+    value.includes("암체어")
+  ) {
+    return "chair";
+  }
   if (value.includes("table") || value.includes("테이블")) return "table";
   if (
     value.includes("storage") ||
     value.includes("수납") ||
     value.includes("선반") ||
     value.includes("서랍")
-  ) return "storage";
+  ) {
+    return "storage";
+  }
   if (value.includes("bed") || value.includes("침대")) return "bed";
   if (value.includes("lamp") || value.includes("조명")) return "lighting";
   if (value.includes("desk") || value.includes("책상")) return "desk";
@@ -138,27 +183,157 @@ function toCm(value: number, unit?: string): number {
   return Math.round(value * 10) / 10;
 }
 
+function hasStronglyExcludedDimensionContext(line: string): boolean {
+  return STRONGLY_EXCLUDED_DIMENSION_CONTEXTS.some((keyword) =>
+    line.includes(keyword)
+  );
+}
+
+function hasWeaklyExcludedDimensionContext(line: string): boolean {
+  return WEAKLY_EXCLUDED_DIMENSION_CONTEXTS.some((keyword) =>
+    line.includes(keyword)
+  );
+}
+
 function extractDimensionValue(text: string, labels: string[]): number | null {
-  const escaped = labels.map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const escaped = labels
+    .map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
 
   const patterns = [
-    new RegExp(`(?:${escaped})\\s*[:：]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?`, "i"),
-    new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?\\s*(?:${escaped})`, "i"),
+    new RegExp(
+      `(?:^|\\s)(?:${escaped})\\s*[:：]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?(?:\\s|$)`,
+      "i"
+    ),
+    new RegExp(
+      `(?:^|\\s)(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?\\s*(?:${escaped})(?:\\s|$)`,
+      "i"
+    ),
   ];
 
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (!match) continue;
+  const lines = text
+    .split(/[\n\r]+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 
-    const value = Number(match[1].replace(",", "."));
-    const unit = match[2];
+  for (const line of lines) {
+    if (hasStronglyExcludedDimensionContext(line)) continue;
+    if (hasWeaklyExcludedDimensionContext(line)) continue;
 
-    if (Number.isFinite(value)) {
-      return toCm(value, unit);
+    for (const pattern of patterns) {
+      const match = line.match(pattern);
+      if (!match) continue;
+
+      const value = Number(match[1].replace(",", "."));
+      const unit = match[2];
+
+      if (Number.isFinite(value)) {
+        return toCm(value, unit);
+      }
     }
   }
 
   return null;
+}
+
+function extractHeightValue(text: string): number | null {
+  const lines = text
+    .split(/[\n\r]+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const primaryLabels = ["높이", "총높이", "height"];
+  const secondaryLabels = ["등받이H", "등받이 높이"];
+
+  const tryExtract = (line: string, labels: string[]): number | null => {
+    const escaped = labels
+      .map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|");
+
+    const patterns = [
+      new RegExp(
+        `(?:^|\\s)(?:${escaped})\\s*[:：]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?(?:\\s|$)`,
+        "i"
+      ),
+      new RegExp(
+        `(?:^|\\s)(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?\\s*(?:${escaped})(?:\\s|$)`,
+        "i"
+      ),
+    ];
+
+    for (const pattern of patterns) {
+      const match = line.match(pattern);
+      if (!match) continue;
+
+      const value = Number(match[1].replace(",", "."));
+      const unit = match[2];
+
+      if (Number.isFinite(value)) {
+        return toCm(value, unit);
+      }
+    }
+
+    return null;
+  };
+
+  for (const line of lines) {
+    if (hasStronglyExcludedDimensionContext(line)) continue;
+    if (hasWeaklyExcludedDimensionContext(line)) continue;
+
+    const value = tryExtract(line, primaryLabels);
+    if (value != null) return value;
+  }
+
+  for (const line of lines) {
+    if (hasStronglyExcludedDimensionContext(line)) continue;
+    if (line.includes("시트") || line.includes("팔걸이")) continue;
+
+    const value = tryExtract(line, secondaryLabels);
+    if (value != null) return value;
+  }
+
+  return null;
+}
+
+function extractCompactDimensions(text: string): {
+  width_cm: number | null;
+  depth_cm: number | null;
+  height_cm: number | null;
+} {
+  const lines = text
+    .split(/[\n\r]+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    if (hasStronglyExcludedDimensionContext(line)) continue;
+    if (hasWeaklyExcludedDimensionContext(line)) continue;
+
+    const compact = line.match(
+      /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(cm|mm|m)/i
+    );
+
+    if (!compact) continue;
+
+    const a = Number(compact[1].replace(",", "."));
+    const b = Number(compact[2].replace(",", "."));
+    const c = Number(compact[3].replace(",", "."));
+    const unit = compact[4];
+
+    if ([a, b, c].every(Number.isFinite)) {
+      return {
+        width_cm: toCm(a, unit),
+        depth_cm: toCm(b, unit),
+        height_cm: toCm(c, unit),
+      };
+    }
+  }
+
+  return {
+    width_cm: null,
+    depth_cm: null,
+    height_cm: null,
+  };
 }
 
 function extractDimensions(html: string): {
@@ -193,40 +368,57 @@ function extractDimensions(html: string): {
   for (const keyword of keywordCandidates) {
     const idx = text.toLowerCase().indexOf(keyword.toLowerCase());
     if (idx >= 0) {
-      const start = Math.max(0, idx - 200);
-      const end = Math.min(text.length, idx + 2500);
+      const start = Math.max(0, idx - 100);
+      const end = Math.min(text.length, idx + 1800);
       sectionText = text.slice(start, end);
       break;
     }
   }
 
-  let width_cm = extractDimensionValue(sectionText, ["폭", "가로", "너비", "width", "w"]);
-  let depth_cm = extractDimensionValue(sectionText, ["깊이", "세로", "depth", "d"]);
-  let height_cm = extractDimensionValue(sectionText, ["높이", "총높이", "height", "h"]);
+  const lines = sectionText
+    .split(/[\n\r]+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
 
-  // 121 x 78 x 78 cm 형태 보조 추출
+  const priorityLines = lines.slice(0, 12).join("\n");
+  const fullSection = lines.join("\n");
+
+  let width_cm = extractDimensionValue(priorityLines, [
+    "폭",
+    "가로",
+    "너비",
+    "width",
+  ]);
+  let depth_cm = extractDimensionValue(priorityLines, [
+    "깊이",
+    "세로",
+    "depth",
+  ]);
+  let height_cm = extractHeightValue(priorityLines);
+
+  if (width_cm == null) {
+    width_cm = extractDimensionValue(fullSection, ["폭", "가로", "너비", "width"]);
+  }
+  if (depth_cm == null) {
+    depth_cm = extractDimensionValue(fullSection, ["깊이", "세로", "depth"]);
+  }
+  if (height_cm == null) {
+    height_cm = extractHeightValue(fullSection);
+  }
+
   if (width_cm == null || depth_cm == null || height_cm == null) {
-    const compact = sectionText.match(
-      /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(cm|mm|m)/i
-    );
+    const compact = extractCompactDimensions(priorityLines || fullSection);
 
-    if (compact) {
-      const a = Number(compact[1].replace(",", "."));
-      const b = Number(compact[2].replace(",", "."));
-      const c = Number(compact[3].replace(",", "."));
-      const unit = compact[4];
-
-      if (width_cm == null && Number.isFinite(a)) width_cm = toCm(a, unit);
-      if (depth_cm == null && Number.isFinite(b)) depth_cm = toCm(b, unit);
-      if (height_cm == null && Number.isFinite(c)) height_cm = toCm(c, unit);
-    }
+    if (width_cm == null) width_cm = compact.width_cm;
+    if (depth_cm == null) depth_cm = compact.depth_cm;
+    if (height_cm == null) height_cm = compact.height_cm;
   }
 
   return {
     width_cm,
     depth_cm,
     height_cm,
-    raw_dimension_text: sectionText || null,
+    raw_dimension_text: fullSection || null,
   };
 }
 
@@ -279,7 +471,7 @@ export function parseIkeaPayload(raw: any): ParsedFurnitureProduct {
         height_cm: dims.height_cm,
         raw_dimension_text_preview:
           dims.raw_dimension_text?.slice(0, 1000) ?? null,
-        parser_version: "ikea-dim-v2",
+        parser_version: "ikea-dim-v4",
       },
     },
   };

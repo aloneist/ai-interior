@@ -62,21 +62,17 @@ function detectSourceSite(url: string) {
   }
 }
 
-function parseNumberOrNull(v: any) {
+function parseNumberOrNull(v: unknown) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-function toStringArray(v: any): string[] {
+function toStringArray(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
+
   return v
     .map((item) => (typeof item === "string" ? item.trim() : ""))
     .filter(Boolean);
-}
-
-function pickFirstString(v: any): string | null {
-  const arr = toStringArray(v);
-  return arr[0] ?? null;
 }
 
 function detectDimensionKeyword(html: string) {
@@ -91,9 +87,14 @@ function parseSourcePayload(
   sourceSite: string,
   raw: {
     html: string;
+    full_html?: string;
     html_snippet: string;
     source_url: string;
     source_site: string;
+    raw_payload?: {
+      full_html?: string;
+      html_snippet?: string;
+    };
   }
 ): ParsedFurnitureProduct | null {
   if (sourceSite === "ikea") {
@@ -101,54 +102,6 @@ function parseSourcePayload(
   }
 
   return null;
-}
-
-function buildParsedProductPayload(params: {
-  sourceSite: string;
-  normalizedUrl: string;
-  parserResult: ParsedFurnitureProduct | null;
-  extracted: ExtractedAiResult;
-  importJobId: string;
-}) {
-  const { sourceSite, normalizedUrl, parserResult, extracted, importJobId } =
-    params;
-
-  return {
-    source_site: sourceSite,
-    source_url: normalizedUrl,
-    product_name: parserResult?.product_name ?? extracted.extracted_name ?? null,
-    brand: parserResult?.brand ?? extracted.extracted_brand ?? null,
-    category: parserResult?.category ?? extracted.extracted_category ?? "unknown",
-    price:
-      parserResult?.price ?? parseNumberOrNull(extracted.extracted_price),
-    currency: parserResult?.currency ?? "KRW",
-    image_url:
-      parserResult?.image_url ?? pickFirstString(extracted.extracted_image_urls),
-    product_url: normalizedUrl,
-    description: parserResult?.description ?? null,
-    color: parserResult?.color ?? null,
-    material:
-      parserResult?.material ?? extracted.extracted_material ?? null,
-    width_cm:
-      parserResult?.width_cm ?? parseNumberOrNull(extracted.extracted_width_cm),
-    depth_cm:
-      parserResult?.depth_cm ?? parseNumberOrNull(extracted.extracted_depth_cm),
-    height_cm:
-      parserResult?.height_cm ?? parseNumberOrNull(extracted.extracted_height_cm),
-    metadata_json: {
-      ...(parserResult?.metadata_json ?? {}),
-      import_job_id: importJobId,
-      extracted_price: parseNumberOrNull(extracted.extracted_price),
-      extraction_notes: extracted.extraction_notes ?? null,
-      extracted_confidence: parseNumberOrNull(extracted.extracted_confidence),
-      extracted_image_urls: toStringArray(extracted.extracted_image_urls),
-      extracted_color_options: toStringArray(extracted.extracted_color_options),
-      extracted_option_summaries: toStringArray(
-        extracted.extracted_option_summaries
-      ),
-    },
-    status: "active",
-  };
 }
 
 export async function POST(req: Request) {
@@ -171,7 +124,6 @@ export async function POST(req: Request) {
     const normalizedUrl = normalizeUrl(sourceUrl);
     const sourceSite = detectSourceSite(normalizedUrl);
 
-    // 1) 원본 페이지 HTML 가져오기
     const pageRes = await fetch(normalizedUrl, {
       headers: {
         "User-Agent":
@@ -191,18 +143,26 @@ export async function POST(req: Request) {
     const htmlLength = html.length;
     const hasDimensionKeyword = detectDimensionKeyword(html);
 
-    // 2) 사이트 파서에는 html 전달
-    const parserResult = parseSourcePayload(sourceSite, {
-      html: html,
-      html_snippet: htmlSnippet,
-      source_url: normalizedUrl,
-      source_site: sourceSite,
-    });
+    const parsed: ParsedFurnitureProduct | null = parseSourcePayload(
+      sourceSite,
+      {
+        html,
+        full_html: html,
+        html_snippet: htmlSnippet,
+        source_url: normalizedUrl,
+        source_site: sourceSite,
+        raw_payload: {
+          full_html: html,
+          html_snippet: htmlSnippet,
+        },
+      }
+    );
 
     const parserVersion =
-      parserResult?.metadata_json?.parser_version ?? null;
+      parsed?.metadata_json?.dimension_debug?.parser_version ??
+      parsed?.metadata_json?.parser_version ??
+      null;
 
-    // 3) OpenAI에는 기존처럼 snippet만 전달
     const aiRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       response_format: { type: "json_object" },
@@ -261,45 +221,37 @@ Rules:
       aiRes.choices[0].message.content || "{}"
     );
 
-    const parsed: ParsedFurnitureProduct | null =
-        sourceSite === "ikea"
-          ? parseIkeaPayload({
-              full_html: html,
-              html_snippet: htmlSnippet,
-              raw_payload: {
-                full_html: html,
-                html_snippet: htmlSnippet,
-              },
-            })
-          : null
-
-    // 4) import_jobs 저장
     const importPayload = {
       source_site: sourceSite,
       source_url: normalizedUrl,
-      raw_payload: { 
+      raw_payload: {
         full_html: html,
         html_snippet: htmlSnippet,
         html_length: htmlLength,
         has_dimension_keyword: hasDimensionKeyword,
         parser_version: parserVersion,
       },
-      extracted_name: extracted.extracted_name ?? null,
-      extracted_brand: extracted.extracted_brand ?? null,
-      extracted_category: extracted.extracted_category ?? null,
-      extracted_price: parseNumberOrNull(extracted.extracted_price),
-      extracted_material: extracted.extracted_material ?? null,
+
+      extracted_name: extracted.extracted_name ?? parsed?.product_name ?? null,
+      extracted_brand: extracted.extracted_brand ?? parsed?.brand ?? null,
+      extracted_category:
+        extracted.extracted_category ?? parsed?.category ?? null,
+      extracted_price:
+        parseNumberOrNull(extracted.extracted_price) ??
+        parseNumberOrNull(parsed?.price),
+      extracted_material:
+        extracted.extracted_material ?? parsed?.material ?? null,
+
       extracted_width_cm:
         parseNumberOrNull(parsed?.width_cm) ??
         parseNumberOrNull(extracted.extracted_width_cm),
-
       extracted_depth_cm:
         parseNumberOrNull(parsed?.depth_cm) ??
         parseNumberOrNull(extracted.extracted_depth_cm),
-
       extracted_height_cm:
         parseNumberOrNull(parsed?.height_cm) ??
         parseNumberOrNull(extracted.extracted_height_cm),
+
       extracted_color_options: toStringArray(extracted.extracted_color_options),
       extracted_size_label: extracted.extracted_size_label ?? null,
       extracted_capacity_label: extracted.extracted_capacity_label ?? null,
@@ -314,8 +266,16 @@ Rules:
       extracted_affiliate_url:
         extracted.extracted_affiliate_url ?? normalizedUrl,
       extracted_confidence: parseNumberOrNull(extracted.extracted_confidence),
-      extraction_notes: extracted.extraction_notes ?? null,
-      status: "completed",
+
+      extraction_notes:
+        parsed?.metadata_json?.dimension_debug
+          ? JSON.stringify({
+              ai_notes: extracted.extraction_notes ?? null,
+              parser_debug: parsed.metadata_json.dimension_debug,
+            })
+          : (extracted.extraction_notes ?? null),
+
+      status: "pending_review",
     };
 
     const { data: importJob, error: importError } = await supabase
@@ -326,27 +286,9 @@ Rules:
 
     if (importError) throw importError;
 
-    // 5) parsed_products 저장
-    const parsedProductPayload = buildParsedProductPayload({
-      sourceSite,
-      normalizedUrl,
-      parserResult,
-      extracted,
-      importJobId: importJob.id,
-    });
-
-    const { data: parsedProduct, error: parsedError } = await supabase
-      .from("parsed_products")
-      .upsert(parsedProductPayload, { onConflict: "source_url" })
-      .select()
-      .single();
-
-    if (parsedError) throw parsedError;
-
     return NextResponse.json({
       success: true,
       import_job: importJob,
-      parsed_product: parsedProduct,
     });
   } catch (err: any) {
     console.error("IMPORT PRODUCT ERROR:", err);
