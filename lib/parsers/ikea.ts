@@ -1,3 +1,5 @@
+import * as cheerio from "cheerio";
+
 export type ParsedFurnitureProduct = {
   product_name: string | null;
   brand: string | null;
@@ -44,6 +46,16 @@ const WEAKLY_EXCLUDED_DIMENSION_CONTEXTS = [
   "받침",
 ];
 
+const STOP_SECTION_KEYWORDS = [
+  "포장",
+  "상품평",
+  "고시 정보",
+  "안전 및 규정 준수",
+  "제품 설명",
+  "소재 및 관리",
+  "관련 상품",
+];
+
 function decodeHtml(input: string): string {
   return input
     .replace(/&nbsp;/gi, " ")
@@ -54,24 +66,83 @@ function decodeHtml(input: string): string {
     .replace(/&#39;/g, "'");
 }
 
-function stripHtml(html: string): string {
-  if (!html) return "";
-
-  return decodeHtml(
-    html
-      .replace(/<script[\s\S]*?<\/script>/gi, "\n")
-      .replace(/<style[\s\S]*?<\/style>/gi, "\n")
-      .replace(/<noscript[\s\S]*?<\/noscript>/gi, "\n")
-      .replace(
-        /<\/(p|div|li|tr|td|th|section|article|h1|h2|h3|h4|h5|h6)>/gi,
-        "\n"
-      )
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<[^>]+>/g, " ")
-  )
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{2,}/g, "\n")
+function normalizeText(input: string): string {
+  return decodeHtml(input)
+    .replace(/\r/g, "\n")
+    .replace(/\t/g, " ")
+    .replace(/\u00a0/g, " ")
+    .replace(/[ ]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+function textOf($: cheerio.CheerioAPI, el: any): string {
+  return normalizeText($(el).text() || "");
+}
+
+function htmlToVisibleText(html: string): string {
+  const $ = cheerio.load(html);
+  $("script, style, noscript, svg").remove();
+
+  const blockTags = new Set([
+    "div",
+    "section",
+    "article",
+    "main",
+    "aside",
+    "nav",
+    "header",
+    "footer",
+    "p",
+    "ul",
+    "ol",
+    "li",
+    "dl",
+    "dt",
+    "dd",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "td",
+    "th",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "br",
+    "button",
+    "summary",
+    "details",
+  ]);
+
+  const chunks: string[] = [];
+
+  function walk(node: any) {
+    if (!node) return;
+
+    if (node.type === "text") {
+      const text = node.data?.trim();
+      if (text) chunks.push(text);
+      return;
+    }
+
+    if (node.type === "tag") {
+      const tag = node.name?.toLowerCase();
+      if (blockTags.has(tag)) chunks.push("\n");
+      if (node.children?.length) {
+        for (const child of node.children) walk(child);
+      }
+      if (blockTags.has(tag)) chunks.push("\n");
+    }
+  }
+
+  const rootChildren = $.root().children().toArray();
+  for (const child of rootChildren) walk(child);
+
+  return normalizeText(chunks.join(" "));
 }
 
 function extractProductName(html: string): string | null {
@@ -183,113 +254,213 @@ function toCm(value: number, unit?: string): number {
   return Math.round(value * 10) / 10;
 }
 
-function hasStronglyExcludedDimensionContext(line: string): boolean {
-  return STRONGLY_EXCLUDED_DIMENSION_CONTEXTS.some((keyword) =>
-    line.includes(keyword)
-  );
-}
-
-function hasWeaklyExcludedDimensionContext(line: string): boolean {
-  return WEAKLY_EXCLUDED_DIMENSION_CONTEXTS.some((keyword) =>
-    line.includes(keyword)
-  );
-}
-
-function extractDimensionValue(text: string, labels: string[]): number | null {
+function makeLabelPattern(labels: string[]): RegExp {
   const escaped = labels
     .map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
 
-  const patterns = [
-    new RegExp(
-      `(?:^|\\s)(?:${escaped})\\s*[:：]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?(?:\\s|$)`,
-      "i"
-    ),
-    new RegExp(
-      `(?:^|\\s)(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?\\s*(?:${escaped})(?:\\s|$)`,
-      "i"
-    ),
-  ];
-
-  const lines = text
-    .split(/[\n\r]+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  for (const line of lines) {
-    if (hasStronglyExcludedDimensionContext(line)) continue;
-    if (hasWeaklyExcludedDimensionContext(line)) continue;
-
-    for (const pattern of patterns) {
-      const match = line.match(pattern);
-      if (!match) continue;
-
-      const value = Number(match[1].replace(",", "."));
-      const unit = match[2];
-
-      if (Number.isFinite(value)) {
-        return toCm(value, unit);
-      }
-    }
-  }
-
-  return null;
+  return new RegExp(
+    `(${escaped})\\s*[:：]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?`,
+    "i"
+  );
 }
 
-function extractHeightValue(text: string): number | null {
+function extractDimensionSection(html: string): string {
+  const $ = cheerio.load(html);
+  $("script, style, noscript, svg").remove();
+
+  const candidates: string[] = [];
+
+  $("h1, h2, h3, h4, h5, h6, button, summary, span, div").each((_, el) => {
+    const t = textOf($, el);
+    if (!t) return;
+
+    const isDimensionHeading =
+      t === "치수" ||
+      t.startsWith("치수") ||
+      t === "제품 크기" ||
+      t === "제품크기";
+
+    if (!isDimensionHeading) return;
+
+    const parent = $(el).parent();
+    const parentText = normalizeText(parent.text());
+    if (parentText) candidates.push(parentText);
+
+    let current = parent.next();
+    const chunks: string[] = [t];
+
+    while (current.length) {
+      const currentText = normalizeText(current.text());
+      if (STOP_SECTION_KEYWORDS.some((kw) => currentText.includes(kw))) break;
+      if (currentText) chunks.push(currentText);
+      current = current.next();
+    }
+
+    const joined = normalizeText(chunks.join("\n"));
+    if (joined) candidates.push(joined);
+  });
+
+  if (candidates.length === 0) {
+    $("section, article, div, li, details").each((_, el) => {
+      const t = textOf($, el);
+      if (!t) return;
+
+      const hasDimensionLabels =
+        t.includes("폭") ||
+        t.includes("깊이") ||
+        t.includes("등받이H") ||
+        t.includes("등받이 높이") ||
+        t.includes("높이");
+
+      if (t.includes("치수") && hasDimensionLabels) {
+        candidates.push(t);
+      }
+    });
+  }
+
+  if (candidates.length === 0) {
+    const text = htmlToVisibleText(html);
+    const idx = text.indexOf("치수");
+    if (idx >= 0) {
+      return text.slice(idx, Math.min(text.length, idx + 1200)).trim();
+    }
+    return text.slice(0, 1200).trim();
+  }
+
+  const scored = candidates
+    .map((section) => {
+      let score = 0;
+
+      const labelCount =
+        section.match(
+          /(폭|깊이|높이|등받이H|등받이 높이)\s*[:：]?\s*\d/gi
+        )?.length ?? 0;
+      const unitCount =
+        section.match(/\d+(?:[.,]\d+)?\s*(cm|mm|m)\b/gi)?.length ?? 0;
+
+      score += labelCount * 12;
+      score += unitCount * 6;
+
+      if (section.includes("치수")) score += 10;
+      if (section.includes("등받이H")) score += 12;
+      if (section.includes("깊이")) score += 8;
+      if (section.includes("폭")) score += 8;
+
+      for (const kw of STOP_SECTION_KEYWORDS) {
+        if (kw !== "포장" && section.includes(kw)) score -= 8;
+      }
+      if (section.includes("제품 설명")) score -= 20;
+
+      return { section, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  let best = scored[0].section.trim();
+
+  const packagingKeywords = ["포장", "패키지", "배송"];
+  let cutIndex = best.length;
+
+  for (const keyword of packagingKeywords) {
+    const idx = best.indexOf(keyword);
+    if (idx > 0 && idx < cutIndex) {
+      cutIndex = idx;
+    }
+  }
+
+  best = best.slice(0, cutIndex).trim();
+  return best;
+}
+
+function normalizeDimensionSectionForParsing(sectionText: string): string {
+  let text = normalizeText(sectionText);
+
+  const boundaryLabels = [
+    "치수",
+    "팔걸이 높이",
+    "팔걸이 너비",
+    "깊이",
+    "가구 밑 여유공간",
+    "등받이H",
+    "등받이 높이",
+    "시트 깊이",
+    "시트 높이",
+    "시트 폭",
+    "폭",
+    "가로",
+    "너비",
+    "높이",
+    "총높이",
+  ];
+
+  for (const label of boundaryLabels) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    text = text.replace(new RegExp(`\\s*${escaped}\\s*:`, "g"), `\n${label}:`);
+  }
+
+  text = text
+    .replace(/등받이H:\s*([0-9]+(?:[.,][0-9]+)?)\s*(cm|mm|m)?시트/g, "등받이H: $1 $2\n시트")
+    .replace(/\n{2,}/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n");
+
+  return text;
+}
+
+function buildContextLine(lines: string[], index: number): string {
+  const prev = lines[index - 1] ?? "";
+  const current = lines[index] ?? "";
+  const next = lines[index + 1] ?? "";
+  return `${prev} ${current} ${next}`.trim();
+}
+
+function extractFromLines(params: {
+  text: string;
+  labels: string[];
+  strongExclude?: string[];
+  weakExclude?: string[];
+  allowWeakFor?: string[];
+}): number | null {
+  const {
+    text,
+    labels,
+    strongExclude = STRONGLY_EXCLUDED_DIMENSION_CONTEXTS,
+    weakExclude = WEAKLY_EXCLUDED_DIMENSION_CONTEXTS,
+    allowWeakFor = [],
+  } = params;
+
+  const pattern = makeLabelPattern(labels);
+  const allowedWeakSet = new Set(allowWeakFor);
+
   const lines = text
-    .split(/[\n\r]+/)
+    .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const primaryLabels = ["높이", "총높이", "height"];
-  const secondaryLabels = ["등받이H", "등받이 높이"];
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const contextLine = buildContextLine(lines, i);
 
-  const tryExtract = (line: string, labels: string[]): number | null => {
-    const escaped = labels
-      .map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join("|");
+    const match = line.match(pattern);
+    if (!match) continue;
 
-    const patterns = [
-      new RegExp(
-        `(?:^|\\s)(?:${escaped})\\s*[:：]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?(?:\\s|$)`,
-        "i"
-      ),
-      new RegExp(
-        `(?:^|\\s)(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?\\s*(?:${escaped})(?:\\s|$)`,
-        "i"
-      ),
-    ];
+    const matchedLabel = match[1];
+    const rawValue = match[2];
+    const unit = match[3];
 
-    for (const pattern of patterns) {
-      const match = line.match(pattern);
-      if (!match) continue;
+    const hasStrong = strongExclude.some((kw) => contextLine.includes(kw));
+    if (hasStrong) continue;
 
-      const value = Number(match[1].replace(",", "."));
-      const unit = match[2];
+    const shouldApplyWeak = !allowedWeakSet.has(matchedLabel);
+    const hasWeak = weakExclude.some((kw) => contextLine.includes(kw));
+    if (shouldApplyWeak && hasWeak) continue;
 
-      if (Number.isFinite(value)) {
-        return toCm(value, unit);
-      }
+    const value = Number(rawValue.replace(",", "."));
+    if (Number.isFinite(value)) {
+      return toCm(value, unit);
     }
-
-    return null;
-  };
-
-  for (const line of lines) {
-    if (hasStronglyExcludedDimensionContext(line)) continue;
-    if (hasWeaklyExcludedDimensionContext(line)) continue;
-
-    const value = tryExtract(line, primaryLabels);
-    if (value != null) return value;
-  }
-
-  for (const line of lines) {
-    if (hasStronglyExcludedDimensionContext(line)) continue;
-    if (line.includes("시트") || line.includes("팔걸이")) continue;
-
-    const value = tryExtract(line, secondaryLabels);
-    if (value != null) return value;
   }
 
   return null;
@@ -301,13 +472,22 @@ function extractCompactDimensions(text: string): {
   height_cm: number | null;
 } {
   const lines = text
-    .split(/[\n\r]+/)
+    .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
 
-  for (const line of lines) {
-    if (hasStronglyExcludedDimensionContext(line)) continue;
-    if (hasWeaklyExcludedDimensionContext(line)) continue;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const contextLine = buildContextLine(lines, i);
+
+    const hasStrong = STRONGLY_EXCLUDED_DIMENSION_CONTEXTS.some((kw) =>
+      contextLine.includes(kw)
+    );
+    const hasWeak = WEAKLY_EXCLUDED_DIMENSION_CONTEXTS.some((kw) =>
+      contextLine.includes(kw)
+    );
+
+    if (hasStrong || hasWeak) continue;
 
     const compact = line.match(
       /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(cm|mm|m)/i
@@ -351,74 +531,65 @@ function extractDimensions(html: string): {
     };
   }
 
-  const text = stripHtml(html);
+  const rawSectionText = extractDimensionSection(html);
+  const sectionText = normalizeDimensionSectionForParsing(rawSectionText);
 
-  const keywordCandidates = [
-    "치수",
-    "제품 크기",
-    "제품크기",
-    "사이즈",
-    "규격",
-    "dimensions",
-    "size",
-  ];
-
-  let sectionText = text;
-
-  for (const keyword of keywordCandidates) {
-    const idx = text.toLowerCase().indexOf(keyword.toLowerCase());
-    if (idx >= 0) {
-      const start = Math.max(0, idx - 100);
-      const end = Math.min(text.length, idx + 1800);
-      sectionText = text.slice(start, end);
-      break;
-    }
-  }
-
-  const lines = sectionText
-    .split(/[\n\r]+/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const priorityLines = lines.slice(0, 12).join("\n");
-  const fullSection = lines.join("\n");
-
-  let width_cm = extractDimensionValue(priorityLines, [
-    "폭",
-    "가로",
-    "너비",
-    "width",
-  ]);
-  let depth_cm = extractDimensionValue(priorityLines, [
-    "깊이",
-    "세로",
-    "depth",
-  ]);
-  let height_cm = extractHeightValue(priorityLines);
+  // width: 폭 우선, 너비는 fallback
+  let width_cm = extractFromLines({
+    text: sectionText,
+    labels: ["폭", "가로", "width"],
+  });
 
   if (width_cm == null) {
-    width_cm = extractDimensionValue(fullSection, ["폭", "가로", "너비", "width"]);
+    width_cm = extractFromLines({
+      text: sectionText,
+      labels: ["너비"],
+    });
   }
+
+  // depth: 깊이 우선
+  let depth_cm = extractFromLines({
+    text: sectionText,
+    labels: ["깊이", "depth"],
+  });
+
   if (depth_cm == null) {
-    depth_cm = extractDimensionValue(fullSection, ["깊이", "세로", "depth"]);
+    depth_cm = extractFromLines({
+      text: sectionText,
+      labels: ["세로"],
+    });
   }
+
+  // height: 등받이H 우선, 일반 높이는 fallback
+  let height_cm = extractFromLines({
+    text: sectionText,
+    labels: ["등받이H", "등받이 높이"],
+    allowWeakFor: ["등받이H", "등받이 높이"],
+  });
+
   if (height_cm == null) {
-    height_cm = extractHeightValue(fullSection);
+    height_cm = extractFromLines({
+      text: sectionText,
+      labels: ["높이", "총높이", "height"],
+    });
   }
 
   if (width_cm == null || depth_cm == null || height_cm == null) {
-    const compact = extractCompactDimensions(priorityLines || fullSection);
+    const compact = extractCompactDimensions(sectionText);
 
-    if (width_cm == null) width_cm = compact.width_cm;
-    if (depth_cm == null) depth_cm = compact.depth_cm;
-    if (height_cm == null) height_cm = compact.height_cm;
+    return {
+      width_cm: width_cm ?? compact.width_cm,
+      depth_cm: depth_cm ?? compact.depth_cm,
+      height_cm: height_cm ?? compact.height_cm,
+      raw_dimension_text: sectionText || null,
+    };
   }
 
   return {
     width_cm,
     depth_cm,
     height_cm,
-    raw_dimension_text: fullSection || null,
+    raw_dimension_text: sectionText || null,
   };
 }
 
@@ -471,7 +642,7 @@ export function parseIkeaPayload(raw: any): ParsedFurnitureProduct {
         height_cm: dims.height_cm,
         raw_dimension_text_preview:
           dims.raw_dimension_text?.slice(0, 1000) ?? null,
-        parser_version: "ikea-dim-v4",
+        parser_version: "ikea-dim-v13",
       },
     },
   };
