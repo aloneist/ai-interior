@@ -218,29 +218,69 @@ function extractDescription(html: string): string | null {
 }
 
 function normalizeCategory(text: string): string {
-  const value = text.toLowerCase();
+  const value = text.toLowerCase().replace(/\s+/g, " ").trim();
 
-  if (value.includes("sofa") || value.includes("소파")) return "sofa";
+  if (
+    value.includes("sofa") ||
+    value.includes("소파") ||
+    value.includes("2인용 소파") ||
+    value.includes("3인용 소파") ||
+    value.includes("1인용 소파") ||
+    value.includes("4인용 소파") ||
+    value.includes("모듈형 소파") ||
+    value.includes("코너 소파") ||
+    value.includes("카우치 소파") ||
+    value.includes("소파베드")
+  ) {
+    return "sofa";
+  }
+
   if (
     value.includes("chair") ||
     value.includes("의자") ||
-    value.includes("암체어")
+    value.includes("암체어") ||
+    value.includes("식탁의자") ||
+    value.includes("라운지체어")
   ) {
     return "chair";
   }
-  if (value.includes("table") || value.includes("테이블")) return "table";
+
+  if (
+    value.includes("table") ||
+    value.includes("테이블") ||
+    value.includes("식탁") ||
+    value.includes("커피테이블") ||
+    value.includes("사이드테이블")
+  ) {
+    return "table";
+  }
+
   if (
     value.includes("storage") ||
     value.includes("수납") ||
     value.includes("선반") ||
-    value.includes("서랍")
+    value.includes("서랍") ||
+    value.includes("수납장") ||
+    value.includes("캐비닛")
   ) {
     return "storage";
   }
-  if (value.includes("bed") || value.includes("침대")) return "bed";
-  if (value.includes("lamp") || value.includes("조명")) return "lighting";
-  if (value.includes("desk") || value.includes("책상")) return "desk";
-  if (value.includes("decor") || value.includes("장식")) return "decor";
+
+  if (value.includes("bed") || value.includes("침대")) {
+    return "bed";
+  }
+
+  if (value.includes("lamp") || value.includes("조명")) {
+    return "lighting";
+  }
+
+  if (value.includes("desk") || value.includes("책상")) {
+    return "desk";
+  }
+
+  if (value.includes("decor") || value.includes("장식")) {
+    return "decor";
+  }
 
   return "unknown";
 }
@@ -311,7 +351,10 @@ function extractDimensionSection(html: string): string {
         t.includes("깊이") ||
         t.includes("등받이H") ||
         t.includes("등받이 높이") ||
-        t.includes("높이");
+        t.includes("높이") ||
+        t.includes("총높이") ||
+        t.includes("H(등쿠션포함)") ||
+        t.includes("H(쿠션포함)");
 
       if (t.includes("치수") && hasDimensionLabels) {
         candidates.push(t);
@@ -334,7 +377,7 @@ function extractDimensionSection(html: string): string {
 
       const labelCount =
         section.match(
-          /(폭|깊이|높이|등받이H|등받이 높이)\s*[:：]?\s*\d/gi
+          /(폭|깊이|높이|총높이|등받이H|등받이 높이|H\(등쿠션포함\)|H\(쿠션포함\))\s*[:：]?\s*\d/gi
         )?.length ?? 0;
       const unitCount =
         section.match(/\d+(?:[.,]\d+)?\s*(cm|mm|m)\b/gi)?.length ?? 0;
@@ -343,7 +386,11 @@ function extractDimensionSection(html: string): string {
       score += unitCount * 6;
 
       if (section.includes("치수")) score += 10;
-      if (section.includes("등받이H")) score += 12;
+      if (section.includes("등받이H")) score += 6;
+      if (section.includes("높이")) score += 8;
+      if (section.includes("총높이")) score += 8;
+      if (section.includes("H(등쿠션포함)")) score += 14;
+      if (section.includes("H(쿠션포함)")) score += 12;
       if (section.includes("깊이")) score += 8;
       if (section.includes("폭")) score += 8;
 
@@ -391,6 +438,11 @@ function normalizeDimensionSectionForParsing(sectionText: string): string {
     "너비",
     "높이",
     "총높이",
+    "전체 높이",
+    "H(등쿠션포함)",
+    "H(쿠션포함)",
+    "높이(등쿠션포함)",
+    "높이(쿠션포함)",
   ];
 
   for (const label of boundaryLabels) {
@@ -399,7 +451,18 @@ function normalizeDimensionSectionForParsing(sectionText: string): string {
   }
 
   text = text
-    .replace(/등받이H:\s*([0-9]+(?:[.,][0-9]+)?)\s*(cm|mm|m)?시트/g, "등받이H: $1 $2\n시트")
+    .replace(
+      /등받이H:\s*([0-9]+(?:[.,][0-9]+)?)\s*(cm|mm|m)?시트/g,
+      "등받이H: $1 $2\n시트"
+    )
+    .replace(
+      /H\(등쿠션포함\):\s*([0-9]+(?:[.,][0-9]+)?)\s*(cm|mm|m)?시트/g,
+      "H(등쿠션포함): $1 $2\n시트"
+    )
+    .replace(
+      /H\(쿠션포함\):\s*([0-9]+(?:[.,][0-9]+)?)\s*(cm|mm|m)?시트/g,
+      "H(쿠션포함): $1 $2\n시트"
+    )
     .replace(/\n{2,}/g, "\n")
     .split("\n")
     .map((line) => line.trim())
@@ -461,6 +524,140 @@ function extractFromLines(params: {
     if (Number.isFinite(value)) {
       return toCm(value, unit);
     }
+  }
+
+  return null;
+}
+
+function collectFromLines(params: {
+  text: string;
+  labels: string[];
+  strongExclude?: string[];
+  weakExclude?: string[];
+  allowWeakFor?: string[];
+  hardExcludeIfContextHas?: string[];
+}): number[] {
+  const {
+    text,
+    labels,
+    strongExclude = STRONGLY_EXCLUDED_DIMENSION_CONTEXTS,
+    weakExclude = WEAKLY_EXCLUDED_DIMENSION_CONTEXTS,
+    allowWeakFor = [],
+    hardExcludeIfContextHas = [],
+  } = params;
+
+  const pattern = makeLabelPattern(labels);
+  const allowedWeakSet = new Set(allowWeakFor);
+
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const values: number[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    const contextLine = buildContextLine(lines, i);
+
+    const match = line.match(pattern);
+    if (!match) continue;
+
+    const matchedLabel = match[1];
+    const rawValue = match[2];
+    const unit = match[3];
+
+    const hasStrong = strongExclude.some((kw) => contextLine.includes(kw));
+    if (hasStrong) continue;
+
+    if (hardExcludeIfContextHas.some((kw) => contextLine.includes(kw))) {
+      continue;
+    }
+
+    const shouldApplyWeak = !allowedWeakSet.has(matchedLabel);
+    const hasWeak = weakExclude.some((kw) => contextLine.includes(kw));
+    if (shouldApplyWeak && hasWeak) continue;
+
+    const value = Number(rawValue.replace(",", "."));
+    if (Number.isFinite(value)) {
+      values.push(toCm(value, unit));
+    }
+  }
+
+  return values;
+}
+
+function collectHeightCandidatesFromLines(params: {
+  text: string;
+  labels: string[];
+  excludeIfLineHas?: string[];
+}): number[] {
+  const {
+    text,
+    labels,
+    excludeIfLineHas = ["시트", "좌면", "좌석", "팔걸이", "다리", "포장", "배송", "패키지"],
+  } = params;
+
+  const pattern = makeLabelPattern(labels);
+
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const values: number[] = [];
+
+  for (const line of lines) {
+    const match = line.match(pattern);
+    if (!match) continue;
+
+    const rawValue = match[2];
+    const unit = match[3];
+
+    const shouldExclude = excludeIfLineHas.some((kw) => line.includes(kw));
+    if (shouldExclude) continue;
+
+    const value = Number(rawValue.replace(",", "."));
+    if (Number.isFinite(value)) {
+      values.push(toCm(value, unit));
+    }
+  }
+
+  return values;
+}
+
+function maxOrNull(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return Math.max(...values);
+}
+
+function extractHeightFromLines(text: string): number | null {
+  const primaryHeightCandidates = collectHeightCandidatesFromLines({
+    text,
+    labels: [
+      "H(등쿠션포함)",
+      "H(쿠션포함)",
+      "높이(등쿠션포함)",
+      "높이(쿠션포함)",
+      "전체 높이",
+      "총높이",
+      "높이",
+      "height",
+      "H",
+    ],
+  });
+
+  if (primaryHeightCandidates.length > 0) {
+    return maxOrNull(primaryHeightCandidates);
+  }
+
+  const secondaryHeightCandidates = collectHeightCandidatesFromLines({
+    text,
+    labels: ["등받이H", "등받이 높이"],
+  });
+
+  if (secondaryHeightCandidates.length > 0) {
+    return maxOrNull(secondaryHeightCandidates);
   }
 
   return null;
@@ -560,19 +757,8 @@ function extractDimensions(html: string): {
     });
   }
 
-  // height: 등받이H 우선, 일반 높이는 fallback
-  let height_cm = extractFromLines({
-    text: sectionText,
-    labels: ["등받이H", "등받이 높이"],
-    allowWeakFor: ["등받이H", "등받이 높이"],
-  });
-
-  if (height_cm == null) {
-    height_cm = extractFromLines({
-      text: sectionText,
-      labels: ["높이", "총높이", "height"],
-    });
-  }
+  // height: 전체 높이 계열 우선, 등받이H는 fallback
+  let height_cm = extractHeightFromLines(sectionText);
 
   if (width_cm == null || depth_cm == null || height_cm == null) {
     const compact = extractCompactDimensions(sectionText);
@@ -642,7 +828,7 @@ export function parseIkeaPayload(raw: any): ParsedFurnitureProduct {
         height_cm: dims.height_cm,
         raw_dimension_text_preview:
           dims.raw_dimension_text?.slice(0, 1000) ?? null,
-        parser_version: "ikea-dim-v13",
+        parser_version: "ikea-dim-v16",
       },
     },
   };
