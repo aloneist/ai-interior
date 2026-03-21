@@ -317,8 +317,8 @@ Rules:
       extracted_brand: extracted.extracted_brand ?? parsed?.brand ?? null,
       extracted_category: finalCategory,
       extracted_price:
-        parseNumberOrNull(extracted.extracted_price) ??
-        parseNumberOrNull(parsed?.price),
+        parseNumberOrNull(parsed?.price) ??
+        parseNumberOrNull(extracted.extracted_price),
       extracted_material:
         extracted.extracted_material ?? parsed?.material ?? null,
 

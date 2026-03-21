@@ -450,18 +450,10 @@ function normalizeDimensionSectionForParsing(sectionText: string): string {
     text = text.replace(new RegExp(`\\s*${escaped}\\s*:`, "g"), `\n${label}:`);
   }
 
-  text = text
+    text = text
     .replace(
-      /등받이H:\s*([0-9]+(?:[.,][0-9]+)?)\s*(cm|mm|m)?시트/g,
-      "등받이H: $1 $2\n시트"
-    )
-    .replace(
-      /H\(등쿠션포함\):\s*([0-9]+(?:[.,][0-9]+)?)\s*(cm|mm|m)?시트/g,
-      "H(등쿠션포함): $1 $2\n시트"
-    )
-    .replace(
-      /H\(쿠션포함\):\s*([0-9]+(?:[.,][0-9]+)?)\s*(cm|mm|m)?시트/g,
-      "H(쿠션포함): $1 $2\n시트"
+      /(\d+(?:[.,]\d+)?\s*(?:cm|mm|m))(?=[가-힣A-Za-z])/g,
+      "$1\n"
     )
     .replace(/\n{2,}/g, "\n")
     .split("\n")
@@ -626,6 +618,57 @@ function collectHeightCandidatesFromLines(params: {
   return values;
 }
 
+function collectDimensionCandidatesFromLines(params: {
+  text: string;
+  labels: string[];
+  excludeIfLineHas?: string[];
+}): number[] {
+  const {
+    text,
+    labels,
+    excludeIfLineHas = [
+      "시트",
+      "좌면",
+      "좌석",
+      "팔걸이",
+      "내부",
+      "서랍내부",
+      "포장",
+      "배송",
+      "패키지",
+      "헤드레스트",
+      "받침",
+    ],
+  } = params;
+
+  const pattern = makeLabelPattern(labels);
+
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const values: number[] = [];
+
+  for (const line of lines) {
+    const match = line.match(pattern);
+    if (!match) continue;
+
+    const rawValue = match[2];
+    const unit = match[3];
+
+    const shouldExclude = excludeIfLineHas.some((kw) => line.includes(kw));
+    if (shouldExclude) continue;
+
+    const value = Number(rawValue.replace(",", "."));
+    if (Number.isFinite(value)) {
+      values.push(toCm(value, unit));
+    }
+  }
+
+  return values;
+}
+
 function maxOrNull(values: number[]): number | null {
   if (values.length === 0) return null;
   return Math.max(...values);
@@ -731,30 +774,36 @@ function extractDimensions(html: string): {
   const rawSectionText = extractDimensionSection(html);
   const sectionText = normalizeDimensionSectionForParsing(rawSectionText);
 
-  // width: 폭 우선, 너비는 fallback
-  let width_cm = extractFromLines({
+   // width: 전체 폭 계열만 허용, 현재 줄 기준 제외
+  const primaryWidthCandidates = collectDimensionCandidatesFromLines({
     text: sectionText,
     labels: ["폭", "가로", "width"],
   });
 
+  let width_cm = maxOrNull(primaryWidthCandidates);
+
   if (width_cm == null) {
-    width_cm = extractFromLines({
+    const fallbackWidthCandidates = collectDimensionCandidatesFromLines({
       text: sectionText,
       labels: ["너비"],
     });
+    width_cm = maxOrNull(fallbackWidthCandidates);
   }
 
-  // depth: 깊이 우선
-  let depth_cm = extractFromLines({
+  // depth: 전체 깊이 계열만 허용, 현재 줄 기준 제외
+  const primaryDepthCandidates = collectDimensionCandidatesFromLines({
     text: sectionText,
     labels: ["깊이", "depth"],
   });
 
+  let depth_cm = maxOrNull(primaryDepthCandidates);
+
   if (depth_cm == null) {
-    depth_cm = extractFromLines({
+    const fallbackDepthCandidates = collectDimensionCandidatesFromLines({
       text: sectionText,
       labels: ["세로"],
     });
+    depth_cm = maxOrNull(fallbackDepthCandidates);
   }
 
   // height: 전체 높이 계열 우선, 등받이H는 fallback
@@ -828,7 +877,7 @@ export function parseIkeaPayload(raw: any): ParsedFurnitureProduct {
         height_cm: dims.height_cm,
         raw_dimension_text_preview:
           dims.raw_dimension_text?.slice(0, 1000) ?? null,
-        parser_version: "ikea-dim-v16",
+        parser_version: "ikea-dim-v19",
       },
     },
   };

@@ -36,8 +36,26 @@ type RunResult = {
   error?: string | null;
 };
 
+type ExpectedRecord = {
+  expected_category?: string;
+  expected_price?: string;
+  expected_width_cm?: string;
+  expected_depth_cm?: string;
+  expected_height_cm?: string;
+};
+
+type CompareStatus = "PASS" | "FAIL" | "SKIP";
+
+type FieldCompare = {
+  label: string;
+  expected: string;
+  actual: string;
+  status: CompareStatus;
+};
+
 const TOKEN_STORAGE_KEY = "admin_furniture_test_token";
 const URLS_STORAGE_KEY = "admin_furniture_test_urls";
+const EXPECTED_STORAGE_KEY = "admin_furniture_test_expected_map";
 
 function parseUrls(input: string): string[] {
   return input
@@ -79,7 +97,6 @@ function getNotesPreview(notes?: string | null) {
   }
 }
 
-//109까지 테스트 가독성용 코드
 function getParserDebug(job?: ImportJob | null) {
   if (!job?.extraction_notes) return null;
 
@@ -109,9 +126,153 @@ function getDimensionSummary(job?: ImportJob | null) {
   return `W ${w} / D ${d} / H ${h}`;
 }
 
+function normalizeString(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeNumberString(value: unknown) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+
+  const normalized = raw.replace(/[^\d.-]/g, "");
+  const num = Number(normalized);
+  if (!Number.isFinite(num)) return "";
+
+  return String(num);
+}
+
+function compareStringField(expected: string, actual: string): CompareStatus {
+  if (!expected.trim()) return "SKIP";
+  return normalizeString(expected) === normalizeString(actual) ? "PASS" : "FAIL";
+}
+
+function compareNumberField(expected: string, actual: number | null | undefined): CompareStatus {
+  if (!expected.trim()) return "SKIP";
+  const e = normalizeNumberString(expected);
+  const a =
+    typeof actual === "number" && Number.isFinite(actual) ? String(actual) : "";
+  return e !== "" && e === a ? "PASS" : "FAIL";
+}
+
+function getExpectedMapFromStorage(): Record<string, ExpectedRecord> {
+  try {
+    const raw = window.localStorage.getItem(EXPECTED_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function getComparison(result: RunResult, expected?: ExpectedRecord) {
+  if (!result.ok || !result.importJob) {
+    return {
+      overall: "FAIL" as CompareStatus,
+      fields: [] as FieldCompare[],
+      passCount: 0,
+      failCount: 0,
+      skipCount: 0,
+    };
+  }
+
+  const job = result.importJob;
+
+  const fields: FieldCompare[] = [
+    {
+      label: "category",
+      expected: expected?.expected_category?.trim() || "-",
+      actual: job.extracted_category || "-",
+      status: compareStringField(
+        expected?.expected_category || "",
+        job.extracted_category || ""
+      ),
+    },
+    {
+      label: "price",
+      expected: expected?.expected_price?.trim() || "-",
+      actual:
+        typeof job.extracted_price === "number"
+          ? String(job.extracted_price)
+          : "-",
+      status: compareNumberField(
+        expected?.expected_price || "",
+        job.extracted_price
+      ),
+    },
+    {
+      label: "width",
+      expected: expected?.expected_width_cm?.trim() || "-",
+      actual:
+        typeof job.extracted_width_cm === "number"
+          ? String(job.extracted_width_cm)
+          : "-",
+      status: compareNumberField(
+        expected?.expected_width_cm || "",
+        job.extracted_width_cm
+      ),
+    },
+    {
+      label: "depth",
+      expected: expected?.expected_depth_cm?.trim() || "-",
+      actual:
+        typeof job.extracted_depth_cm === "number"
+          ? String(job.extracted_depth_cm)
+          : "-",
+      status: compareNumberField(
+        expected?.expected_depth_cm || "",
+        job.extracted_depth_cm
+      ),
+    },
+    {
+      label: "height",
+      expected: expected?.expected_height_cm?.trim() || "-",
+      actual:
+        typeof job.extracted_height_cm === "number"
+          ? String(job.extracted_height_cm)
+          : "-",
+      status: compareNumberField(
+        expected?.expected_height_cm || "",
+        job.extracted_height_cm
+      ),
+    },
+  ];
+
+  const passCount = fields.filter((f) => f.status === "PASS").length;
+  const failCount = fields.filter((f) => f.status === "FAIL").length;
+  const skipCount = fields.filter((f) => f.status === "SKIP").length;
+
+  const comparedFields = fields.filter((f) => f.status !== "SKIP");
+  const overall: CompareStatus =
+    comparedFields.length === 0
+      ? "SKIP"
+      : comparedFields.every((f) => f.status === "PASS")
+      ? "PASS"
+      : "FAIL";
+
+  return {
+    overall,
+    fields,
+    passCount,
+    failCount,
+    skipCount,
+  };
+}
+
+function getStatusTone(status: CompareStatus) {
+  if (status === "PASS") return styles.badgePass;
+  if (status === "FAIL") return styles.badgeFail;
+  return styles.badgeSkip;
+}
+
 export default function FurnitureTestPage() {
   const [token, setToken] = useState("");
   const [urlsText, setUrlsText] = useState("");
+  const [expectedMap, setExpectedMap] = useState<Record<string, ExpectedRecord>>(
+    {}
+  );
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<RunResult[]>([]);
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
@@ -119,9 +280,11 @@ export default function FurnitureTestPage() {
   useEffect(() => {
     const savedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY) || "";
     const savedUrls = window.localStorage.getItem(URLS_STORAGE_KEY) || "";
+    const savedExpectedMap = getExpectedMapFromStorage();
 
     setToken(savedToken);
     setUrlsText(savedUrls);
+    setExpectedMap(savedExpectedMap);
   }, []);
 
   useEffect(() => {
@@ -132,10 +295,60 @@ export default function FurnitureTestPage() {
     window.localStorage.setItem(URLS_STORAGE_KEY, urlsText);
   }, [urlsText]);
 
+  useEffect(() => {
+    window.localStorage.setItem(
+      EXPECTED_STORAGE_KEY,
+      JSON.stringify(expectedMap)
+    );
+  }, [expectedMap]);
+
   const urls = useMemo(() => parseUrls(urlsText), [urlsText]);
+
+  const orderedResults = useMemo(() => {
+    const list = [...results];
+    list.sort((a, b) => {
+      const aCompare = getComparison(a, expectedMap[a.url]);
+      const bCompare = getComparison(b, expectedMap[b.url]);
+
+      const rank = (r: RunResult, c: ReturnType<typeof getComparison>) => {
+        if (!r.ok) return 0;
+        if (c.overall === "FAIL") return 1;
+        if (c.overall === "SKIP") return 2;
+        return 3;
+      };
+
+      return rank(a, aCompare) - rank(b, bCompare);
+    });
+    return list;
+  }, [results, expectedMap]);
 
   const successCount = results.filter((r) => r.ok).length;
   const failCount = results.filter((r) => !r.ok).length;
+
+  const compareSummary = useMemo(() => {
+    let compared = 0;
+    let passed = 0;
+    let failed = 0;
+    let skipped = 0;
+
+    for (const result of results) {
+      const comparison = getComparison(result, expectedMap[result.url]);
+      if (!result.ok) {
+        failed += 1;
+        continue;
+      }
+
+      if (comparison.overall === "SKIP") {
+        skipped += 1;
+      } else {
+        compared += 1;
+        if (comparison.overall === "PASS") passed += 1;
+        if (comparison.overall === "FAIL") failed += 1;
+      }
+    }
+
+    return { compared, passed, failed, skipped };
+  }, [results, expectedMap]);
 
   async function runSingle(url: string): Promise<RunResult> {
     try {
@@ -207,10 +420,22 @@ export default function FurnitureTestPage() {
   function handleClearAll() {
     setToken("");
     setUrlsText("");
+    setExpectedMap({});
     setResults([]);
     setCurrentUrl(null);
     window.localStorage.removeItem(TOKEN_STORAGE_KEY);
     window.localStorage.removeItem(URLS_STORAGE_KEY);
+    window.localStorage.removeItem(EXPECTED_STORAGE_KEY);
+  }
+
+  function updateExpected(url: string, patch: Partial<ExpectedRecord>) {
+    setExpectedMap((prev) => ({
+      ...prev,
+      [url]: {
+        ...(prev[url] || {}),
+        ...patch,
+      },
+    }));
   }
 
   return (
@@ -219,8 +444,9 @@ export default function FurnitureTestPage() {
         <header style={styles.header}>
           <h1 style={styles.title}>가구 파서 테스트 콘솔</h1>
           <p style={styles.desc}>
-            URL을 넣고 import-product를 바로 호출해서, Supabase upsert 결과와 핵심
-            추출값만 빠르게 확인하는 테스트 화면이야.
+            URL별 정답값을 적어두고 import-product 결과와 자동 비교하는 검증
+            화면이야. 핵심 필드는 category / price / width / depth / height만
+            자동 판정한다.
           </p>
         </header>
 
@@ -276,40 +502,170 @@ export default function FurnitureTestPage() {
           </div>
         </section>
 
+        <section style={styles.expectedPanel}>
+          <div style={styles.expectedPanelTitle}>정답값 입력</div>
+          <p style={styles.expectedPanelDesc}>
+            URL별 예상 정답을 적어두면 실행 후 자동 비교해준다. 비워두면 해당
+            필드는 SKIP 처리된다.
+          </p>
+
+          {urls.length === 0 ? (
+            <div style={styles.emptyBox}>먼저 URL을 입력해줘.</div>
+          ) : (
+            <div style={styles.expectedTableWrap}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.thWide}>URL</th>
+                    <th style={styles.th}>category</th>
+                    <th style={styles.th}>price</th>
+                    <th style={styles.th}>width</th>
+                    <th style={styles.th}>depth</th>
+                    <th style={styles.th}>height</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {urls.map((url) => {
+                    const expected = expectedMap[url] || {};
+
+                    return (
+                      <tr key={url}>
+                        <td style={styles.tdUrl}>{url}</td>
+                        <td style={styles.td}>
+                          <input
+                            value={expected.expected_category || ""}
+                            onChange={(e) =>
+                              updateExpected(url, {
+                                expected_category: e.target.value,
+                              })
+                            }
+                            placeholder="sofa"
+                            style={styles.tableInput}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            value={expected.expected_price || ""}
+                            onChange={(e) =>
+                              updateExpected(url, {
+                                expected_price: e.target.value,
+                              })
+                            }
+                            placeholder="499000"
+                            style={styles.tableInput}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            value={expected.expected_width_cm || ""}
+                            onChange={(e) =>
+                              updateExpected(url, {
+                                expected_width_cm: e.target.value,
+                              })
+                            }
+                            placeholder="199"
+                            style={styles.tableInput}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            value={expected.expected_depth_cm || ""}
+                            onChange={(e) =>
+                              updateExpected(url, {
+                                expected_depth_cm: e.target.value,
+                              })
+                            }
+                            placeholder="93"
+                            style={styles.tableInput}
+                          />
+                        </td>
+                        <td style={styles.td}>
+                          <input
+                            value={expected.expected_height_cm || ""}
+                            onChange={(e) =>
+                              updateExpected(url, {
+                                expected_height_cm: e.target.value,
+                              })
+                            }
+                            placeholder="82"
+                            style={styles.tableInput}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
         <section style={styles.summaryRow}>
           <div style={styles.summaryBox}>
-            <div style={styles.summaryLabel}>전체</div>
+            <div style={styles.summaryLabel}>전체 실행</div>
             <div style={styles.summaryValue}>{results.length}</div>
           </div>
           <div style={styles.summaryBox}>
-            <div style={styles.summaryLabel}>성공</div>
+            <div style={styles.summaryLabel}>API 성공</div>
             <div style={styles.summaryValue}>{successCount}</div>
           </div>
           <div style={styles.summaryBox}>
-            <div style={styles.summaryLabel}>실패</div>
+            <div style={styles.summaryLabel}>API 실패</div>
             <div style={styles.summaryValue}>{failCount}</div>
+          </div>
+          <div style={styles.summaryBox}>
+            <div style={styles.summaryLabel}>비교 대상</div>
+            <div style={styles.summaryValue}>{compareSummary.compared}</div>
+          </div>
+          <div style={styles.summaryBox}>
+            <div style={styles.summaryLabel}>비교 통과</div>
+            <div style={styles.summaryValue}>{compareSummary.passed}</div>
+          </div>
+          <div style={styles.summaryBox}>
+            <div style={styles.summaryLabel}>비교 실패</div>
+            <div style={styles.summaryValue}>{compareSummary.failed}</div>
           </div>
         </section>
 
         <section style={styles.resultsWrap}>
-          {results.length === 0 ? (
+          {orderedResults.length === 0 ? (
             <div style={styles.emptyBox}>아직 실행 결과가 없어.</div>
           ) : (
-            results.map((result, idx) => {
+            orderedResults.map((result, idx) => {
               const job = result.importJob;
+              const expected = expectedMap[result.url];
+              const comparison = getComparison(result, expected);
 
               return (
                 <article
                   key={`${result.url}-${idx}`}
                   style={{
                     ...styles.card,
-                    borderColor: result.ok ? "#d0d7de" : "#f1aeb5",
+                    ...(result.ok
+                      ? comparison.overall === "PASS"
+                        ? styles.cardPass
+                        : comparison.overall === "FAIL"
+                        ? styles.cardFail
+                        : styles.cardNeutral
+                      : styles.cardFail),
                   }}
                 >
                   <div style={styles.cardTop}>
-                    <div>
-                      <div style={styles.cardTitle}>
-                        {result.ok ? "성공" : "실패"}
+                    <div style={{ flex: 1 }}>
+                      <div style={styles.cardTitleRow}>
+                        <div style={styles.cardTitle}>
+                          {result.ok ? "성공" : "실패"}
+                        </div>
+                        <span
+                          style={{
+                            ...styles.badge,
+                            ...getStatusTone(
+                              result.ok ? comparison.overall : "FAIL"
+                            ),
+                          }}
+                        >
+                          {result.ok ? comparison.overall : "FAIL"}
+                        </span>
                       </div>
                       <div style={styles.cardUrl}>{result.url}</div>
                     </div>
@@ -362,7 +718,45 @@ export default function FurnitureTestPage() {
                           label="affiliate_url"
                           value={job?.extracted_affiliate_url}
                         />
-                        <Field label="parser_version" value={getParserVersion(job)} />
+                        <Field
+                          label="parser_version"
+                          value={getParserVersion(job)}
+                        />
+                      </div>
+
+                      <div style={styles.subSection}>
+                        <div style={styles.subTitle}>자동 비교 결과</div>
+                        <div style={styles.compareGrid}>
+                          {comparison.fields.map((field) => (
+                            <div key={field.label} style={styles.compareCard}>
+                              <div style={styles.compareCardTop}>
+                                <div style={styles.compareLabel}>
+                                  {field.label}
+                                </div>
+                                <span
+                                  style={{
+                                    ...styles.badge,
+                                    ...getStatusTone(field.status),
+                                  }}
+                                >
+                                  {field.status}
+                                </span>
+                              </div>
+                              <div style={styles.compareValueRow}>
+                                <span style={styles.compareKey}>expected</span>
+                                <span style={styles.compareValue}>
+                                  {field.expected}
+                                </span>
+                              </div>
+                              <div style={styles.compareValueRow}>
+                                <span style={styles.compareKey}>actual</span>
+                                <span style={styles.compareValue}>
+                                  {field.actual}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
                       <div style={styles.subSection}>
@@ -431,56 +825,82 @@ function Field({
 const styles: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100vh",
-    background: "#f6f8fa",
+    background: "#0b1220",
     padding: "32px 20px",
+    color: "#e5e7eb",
   },
   container: {
-    maxWidth: 1200,
+    maxWidth: 1440,
     margin: "0 auto",
   },
   header: {
     marginBottom: 24,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 700,
+    fontSize: 30,
+    fontWeight: 800,
     margin: 0,
+    color: "#f8fafc",
   },
   desc: {
-    marginTop: 8,
-    color: "#57606a",
+    marginTop: 10,
+    color: "#94a3b8",
     lineHeight: 1.6,
   },
   panel: {
-    background: "#fff",
-    border: "1px solid #d0d7de",
-    borderRadius: 16,
+    background: "#111827",
+    border: "1px solid #253047",
+    borderRadius: 18,
     padding: 20,
     marginBottom: 20,
+    boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+  },
+  expectedPanel: {
+    background: "#111827",
+    border: "1px solid #253047",
+    borderRadius: 18,
+    padding: 20,
+    marginBottom: 20,
+    boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+  },
+  expectedPanelTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: "#f8fafc",
+    marginBottom: 8,
+  },
+  expectedPanelDesc: {
+    margin: "0 0 14px 0",
+    color: "#94a3b8",
+    fontSize: 14,
+    lineHeight: 1.6,
   },
   label: {
     display: "block",
-    fontWeight: 600,
+    fontWeight: 700,
     marginBottom: 8,
+    color: "#e5e7eb",
   },
   input: {
     width: "100%",
-    border: "1px solid #d0d7de",
-    borderRadius: 10,
+    border: "1px solid #334155",
+    borderRadius: 12,
     padding: "12px 14px",
     fontSize: 14,
     outline: "none",
-    background: "#fff",
+    background: "#0f172a",
+    color: "#e5e7eb",
   },
   textarea: {
     width: "100%",
-    border: "1px solid #d0d7de",
-    borderRadius: 10,
+    border: "1px solid #334155",
+    borderRadius: 12,
     padding: "12px 14px",
     fontSize: 14,
     outline: "none",
     resize: "vertical",
-    background: "#fff",
+    background: "#0f172a",
+    color: "#e5e7eb",
     lineHeight: 1.5,
   },
   helperRow: {
@@ -488,7 +908,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     gap: 12,
     marginTop: 10,
-    color: "#57606a",
+    color: "#94a3b8",
     fontSize: 13,
     flexWrap: "wrap",
   },
@@ -500,63 +920,127 @@ const styles: Record<string, React.CSSProperties> = {
   },
   button: {
     border: 0,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: "12px 16px",
     fontSize: 14,
-    fontWeight: 600,
+    fontWeight: 700,
     cursor: "pointer",
   },
   buttonPrimary: {
-    background: "#111827",
-    color: "#fff",
+    background: "#2563eb",
+    color: "#eff6ff",
   },
   buttonSecondary: {
-    background: "#e5e7eb",
-    color: "#111827",
+    background: "#1f2937",
+    color: "#e5e7eb",
+    border: "1px solid #334155",
   },
   buttonDisabled: {
-    background: "#9ca3af",
-    color: "#fff",
+    background: "#475569",
+    color: "#cbd5e1",
     cursor: "not-allowed",
   },
   summaryRow: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
     gap: 12,
     marginBottom: 20,
   },
   summaryBox: {
-    background: "#fff",
-    border: "1px solid #d0d7de",
-    borderRadius: 14,
+    background: "#111827",
+    border: "1px solid #253047",
+    borderRadius: 16,
     padding: 16,
   },
   summaryLabel: {
-    color: "#57606a",
+    color: "#94a3b8",
     fontSize: 13,
     marginBottom: 6,
   },
   summaryValue: {
     fontSize: 24,
-    fontWeight: 700,
+    fontWeight: 800,
+    color: "#f8fafc",
   },
   resultsWrap: {
     display: "grid",
     gap: 16,
   },
   emptyBox: {
-    background: "#fff",
-    border: "1px dashed #d0d7de",
+    background: "#0f172a",
+    border: "1px dashed #334155",
     borderRadius: 16,
     padding: 24,
     textAlign: "center",
-    color: "#57606a",
+    color: "#94a3b8",
+  },
+  expectedTableWrap: {
+    overflowX: "auto",
+    border: "1px solid #253047",
+    borderRadius: 14,
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    minWidth: 1100,
+    background: "#0f172a",
+  },
+  th: {
+    textAlign: "left",
+    padding: "12px 10px",
+    fontSize: 12,
+    color: "#94a3b8",
+    borderBottom: "1px solid #253047",
+    background: "#111827",
+  },
+  thWide: {
+    textAlign: "left",
+    padding: "12px 10px",
+    fontSize: 12,
+    color: "#94a3b8",
+    borderBottom: "1px solid #253047",
+    background: "#111827",
+    minWidth: 420,
+  },
+  td: {
+    padding: 10,
+    borderBottom: "1px solid #1e293b",
+    verticalAlign: "top",
+  },
+  tdUrl: {
+    padding: 10,
+    borderBottom: "1px solid #1e293b",
+    verticalAlign: "top",
+    color: "#cbd5e1",
+    fontSize: 12,
+    lineHeight: 1.5,
+    wordBreak: "break-all",
+  },
+  tableInput: {
+    width: "100%",
+    border: "1px solid #334155",
+    borderRadius: 10,
+    padding: "10px 12px",
+    fontSize: 13,
+    outline: "none",
+    background: "#111827",
+    color: "#e5e7eb",
   },
   card: {
-    background: "#fff",
-    border: "1px solid #d0d7de",
-    borderRadius: 16,
+    background: "#111827",
+    border: "1px solid #253047",
+    borderRadius: 18,
     padding: 20,
+    boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+  },
+  cardPass: {
+    borderColor: "#166534",
+  },
+  cardFail: {
+    borderColor: "#991b1b",
+  },
+  cardNeutral: {
+    borderColor: "#334155",
   },
   cardTop: {
     display: "flex",
@@ -564,20 +1048,54 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 12,
     marginBottom: 16,
   },
+  cardTitleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 8,
+    flexWrap: "wrap",
+  },
   cardTitle: {
     fontSize: 20,
-    fontWeight: 700,
-    marginBottom: 6,
+    fontWeight: 800,
+    color: "#f8fafc",
   },
   cardUrl: {
-    color: "#57606a",
+    color: "#94a3b8",
     wordBreak: "break-all",
     fontSize: 13,
+    lineHeight: 1.5,
+  },
+  badge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 58,
+    borderRadius: 999,
+    padding: "4px 10px",
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: 0.2,
+  },
+  badgePass: {
+    background: "rgba(34,197,94,0.16)",
+    color: "#86efac",
+    border: "1px solid rgba(34,197,94,0.35)",
+  },
+  badgeFail: {
+    background: "rgba(239,68,68,0.16)",
+    color: "#fca5a5",
+    border: "1px solid rgba(239,68,68,0.35)",
+  },
+  badgeSkip: {
+    background: "rgba(148,163,184,0.16)",
+    color: "#cbd5e1",
+    border: "1px solid rgba(148,163,184,0.35)",
   },
   errorBox: {
-    background: "#fff1f2",
-    border: "1px solid #fecdd3",
-    color: "#9f1239",
+    background: "rgba(127,29,29,0.18)",
+    border: "1px solid rgba(248,113,113,0.35)",
+    color: "#fecaca",
     borderRadius: 12,
     padding: 14,
     whiteSpace: "pre-wrap",
@@ -589,39 +1107,83 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 16,
   },
   field: {
-    background: "#f8fafc",
-    border: "1px solid #e5e7eb",
+    background: "#0f172a",
+    border: "1px solid #253047",
     borderRadius: 12,
     padding: 12,
     minHeight: 72,
   },
   fieldLabel: {
     fontSize: 12,
-    color: "#57606a",
+    color: "#94a3b8",
     marginBottom: 6,
   },
   fieldValue: {
-    fontWeight: 600,
+    fontWeight: 700,
     lineHeight: 1.5,
     wordBreak: "break-word",
+    color: "#e5e7eb",
   },
   subSection: {
-    marginTop: 14,
+    marginTop: 16,
   },
   subTitle: {
+    fontWeight: 800,
+    marginBottom: 10,
+    color: "#f8fafc",
+  },
+  compareGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+    gap: 12,
+  },
+  compareCard: {
+    background: "#0f172a",
+    border: "1px solid #253047",
+    borderRadius: 14,
+    padding: 12,
+  },
+  compareCardTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  compareLabel: {
+    fontWeight: 800,
+    color: "#e5e7eb",
+    textTransform: "uppercase",
+    fontSize: 12,
+  },
+  compareValueRow: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    marginTop: 8,
+  },
+  compareKey: {
+    color: "#94a3b8",
+    fontSize: 11,
+    textTransform: "uppercase",
+  },
+  compareValue: {
+    color: "#e5e7eb",
     fontWeight: 700,
-    marginBottom: 8,
+    wordBreak: "break-word",
+    lineHeight: 1.4,
   },
   pre: {
     margin: 0,
-    background: "#0f172a",
+    background: "#020617",
     color: "#e2e8f0",
+    border: "1px solid #1e293b",
     borderRadius: 12,
     padding: 14,
     overflowX: "auto",
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
     fontSize: 12,
-    lineHeight: 1.5,
+    lineHeight: 1.6,
   },
 };
