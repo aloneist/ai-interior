@@ -3,10 +3,6 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
-import {
-  parseIkeaPayload,
-  type ParsedFurnitureProduct,
-} from "@/lib/parsers/ikea";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -81,27 +77,6 @@ function detectDimensionKeyword(html: string) {
   return /치수|제품\s*크기|폭\s*:|깊이\s*:|높이\s*:|길이\s*:|시트\s*깊이|시트\s*높이|시트\s*폭|등받이H|팔걸이\s*높이|팔걸이\s*너비/i.test(
     html
   );
-}
-
-function parseSourcePayload(
-  sourceSite: string,
-  raw: {
-    html: string;
-    full_html?: string;
-    html_snippet: string;
-    source_url: string;
-    source_site: string;
-    raw_payload?: {
-      full_html?: string;
-      html_snippet?: string;
-    };
-  }
-): ParsedFurnitureProduct | null {
-  if (sourceSite === "ikea") {
-    return parseIkeaPayload(raw);
-  }
-
-  return null;
 }
 
 function normalizeCategory(value: string): string | null {
@@ -211,26 +186,6 @@ export async function POST(req: Request) {
     const htmlLength = html.length;
     const hasDimensionKeyword = detectDimensionKeyword(html);
 
-    const parsed: ParsedFurnitureProduct | null = parseSourcePayload(
-      sourceSite,
-      {
-        html,
-        full_html: html,
-        html_snippet: htmlSnippet,
-        source_url: normalizedUrl,
-        source_site: sourceSite,
-        raw_payload: {
-          full_html: html,
-          html_snippet: htmlSnippet,
-        },
-      }
-    );
-
-    const parserVersion =
-      parsed?.metadata_json?.dimension_debug?.parser_version ??
-      parsed?.metadata_json?.parser_version ??
-      null;
-
     const aiRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       response_format: { type: "json_object" },
@@ -294,9 +249,7 @@ Rules:
       normalizeCategory(
         [
           extracted.extracted_category,
-          parsed?.category,
           extracted.extracted_name,
-          parsed?.product_name,
         ]
           .filter(Boolean)
           .join(" ")
@@ -310,27 +263,18 @@ Rules:
         html_snippet: htmlSnippet,
         html_length: htmlLength,
         has_dimension_keyword: hasDimensionKeyword,
-        parser_version: parserVersion,
+        parser_version: null,
       },
 
-      extracted_name: extracted.extracted_name ?? parsed?.product_name ?? null,
-      extracted_brand: extracted.extracted_brand ?? parsed?.brand ?? null,
+      extracted_name: extracted.extracted_name ?? null,
+      extracted_brand: extracted.extracted_brand ?? null,
       extracted_category: finalCategory,
-      extracted_price:
-        parseNumberOrNull(parsed?.price) ??
-        parseNumberOrNull(extracted.extracted_price),
-      extracted_material:
-        extracted.extracted_material ?? parsed?.material ?? null,
-
-      extracted_width_cm:
-        parseNumberOrNull(parsed?.width_cm) ??
-        parseNumberOrNull(extracted.extracted_width_cm),
-      extracted_depth_cm:
-        parseNumberOrNull(parsed?.depth_cm) ??
-        parseNumberOrNull(extracted.extracted_depth_cm),
-      extracted_height_cm:
-        parseNumberOrNull(parsed?.height_cm) ??
-        parseNumberOrNull(extracted.extracted_height_cm),
+      extracted_price: parseNumberOrNull(extracted.extracted_price),
+      extracted_material: extracted.extracted_material ?? null,
+      extracted_width_cm: parseNumberOrNull(extracted.extracted_width_cm),
+      extracted_depth_cm: parseNumberOrNull(extracted.extracted_depth_cm),
+      extracted_height_cm: parseNumberOrNull(extracted.extracted_height_cm),
+      extraction_notes: extracted.extraction_notes ?? null,
 
       extracted_color_options: toStringArray(extracted.extracted_color_options),
       extracted_size_label: extracted.extracted_size_label ?? null,
@@ -346,14 +290,6 @@ Rules:
       extracted_affiliate_url:
         extracted.extracted_affiliate_url ?? normalizedUrl,
       extracted_confidence: parseNumberOrNull(extracted.extracted_confidence),
-
-      extraction_notes:
-        parsed?.metadata_json?.dimension_debug
-          ? JSON.stringify({
-              ai_notes: extracted.extraction_notes ?? null,
-              parser_debug: parsed.metadata_json.dimension_debug,
-            })
-          : (extracted.extraction_notes ?? null),
 
       status: "pending_review",
     };
