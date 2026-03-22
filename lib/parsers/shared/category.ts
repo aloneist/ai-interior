@@ -47,10 +47,21 @@ export function normalizeCategory(value: string): string | null {
     return "storage";
   }
 
-  if (text.includes("bed") || text.includes("침대")) return "bed";
-  if (text.includes("lamp") || text.includes("조명")) return "lighting";
-  if (text.includes("desk") || text.includes("책상")) return "desk";
-  if (text.includes("decor") || text.includes("장식")) return "decor";
+  if (text.includes("bed") || text.includes("침대")) {
+    return "bed";
+  }
+
+  if (text.includes("lamp") || text.includes("조명")) {
+    return "lighting";
+  }
+
+  if (text.includes("desk") || text.includes("책상")) {
+    return "desk";
+  }
+
+  if (text.includes("decor") || text.includes("장식")) {
+    return "decor";
+  }
 
   return null;
 }

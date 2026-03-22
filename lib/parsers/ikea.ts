@@ -1,20 +1,19 @@
 import * as cheerio from "cheerio";
-
-export type ParsedFurnitureProduct = {
-  product_name: string | null;
-  brand: string | null;
-  category: string | null;
-  price: number | null;
-  currency: string | null;
-  image_url: string | null;
-  description: string | null;
-  color: string | null;
-  material: string | null;
-  width_cm: number | null;
-  depth_cm: number | null;
-  height_cm: number | null;
-  metadata_json: Record<string, any>;
-};
+import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
+import {
+  decodeHtml,
+  normalizeText,
+  htmlToVisibleText,
+} from "@/lib/parsers/shared/text";
+import {
+  toCm,
+  makeLabelPattern,
+  maxOrNull,
+  normalizeJoinedDimensionLabels,
+  collectLabeledDimensionCandidates,
+} from "@/lib/parsers/shared/dimensions";
+import { normalizeCategory } from "@/lib/parsers/shared/category";
+import { buildParserDebug } from "@/lib/parsers/shared/debug";
 
 const STRONGLY_EXCLUDED_DIMENSION_CONTEXTS = [
   "포장",
@@ -56,93 +55,9 @@ const STOP_SECTION_KEYWORDS = [
   "관련 상품",
 ];
 
-function decodeHtml(input: string): string {
-  return input
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/g, "'");
-}
-
-function normalizeText(input: string): string {
-  return decodeHtml(input)
-    .replace(/\r/g, "\n")
-    .replace(/\t/g, " ")
-    .replace(/\u00a0/g, " ")
-    .replace(/[ ]{2,}/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
 
 function textOf($: cheerio.CheerioAPI, el: any): string {
   return normalizeText($(el).text() || "");
-}
-
-function htmlToVisibleText(html: string): string {
-  const $ = cheerio.load(html);
-  $("script, style, noscript, svg").remove();
-
-  const blockTags = new Set([
-    "div",
-    "section",
-    "article",
-    "main",
-    "aside",
-    "nav",
-    "header",
-    "footer",
-    "p",
-    "ul",
-    "ol",
-    "li",
-    "dl",
-    "dt",
-    "dd",
-    "table",
-    "thead",
-    "tbody",
-    "tr",
-    "td",
-    "th",
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-    "br",
-    "button",
-    "summary",
-    "details",
-  ]);
-
-  const chunks: string[] = [];
-
-  function walk(node: any) {
-    if (!node) return;
-
-    if (node.type === "text") {
-      const text = node.data?.trim();
-      if (text) chunks.push(text);
-      return;
-    }
-
-    if (node.type === "tag") {
-      const tag = node.name?.toLowerCase();
-      if (blockTags.has(tag)) chunks.push("\n");
-      if (node.children?.length) {
-        for (const child of node.children) walk(child);
-      }
-      if (blockTags.has(tag)) chunks.push("\n");
-    }
-  }
-
-  const rootChildren = $.root().children().toArray();
-  for (const child of rootChildren) walk(child);
-
-  return normalizeText(chunks.join(" "));
 }
 
 function extractProductName(html: string): string | null {
@@ -215,94 +130,6 @@ function extractDescription(html: string): string | null {
   }
 
   return null;
-}
-
-function normalizeCategory(text: string): string {
-  const value = text.toLowerCase().replace(/\s+/g, " ").trim();
-
-  if (
-    value.includes("sofa") ||
-    value.includes("소파") ||
-    value.includes("2인용 소파") ||
-    value.includes("3인용 소파") ||
-    value.includes("1인용 소파") ||
-    value.includes("4인용 소파") ||
-    value.includes("모듈형 소파") ||
-    value.includes("코너 소파") ||
-    value.includes("카우치 소파") ||
-    value.includes("소파베드")
-  ) {
-    return "sofa";
-  }
-
-  if (
-    value.includes("chair") ||
-    value.includes("의자") ||
-    value.includes("암체어") ||
-    value.includes("식탁의자") ||
-    value.includes("라운지체어")
-  ) {
-    return "chair";
-  }
-
-  if (
-    value.includes("table") ||
-    value.includes("테이블") ||
-    value.includes("식탁") ||
-    value.includes("커피테이블") ||
-    value.includes("사이드테이블")
-  ) {
-    return "table";
-  }
-
-  if (
-    value.includes("storage") ||
-    value.includes("수납") ||
-    value.includes("선반") ||
-    value.includes("서랍") ||
-    value.includes("수납장") ||
-    value.includes("캐비닛")
-  ) {
-    return "storage";
-  }
-
-  if (value.includes("bed") || value.includes("침대")) {
-    return "bed";
-  }
-
-  if (value.includes("lamp") || value.includes("조명")) {
-    return "lighting";
-  }
-
-  if (value.includes("desk") || value.includes("책상")) {
-    return "desk";
-  }
-
-  if (value.includes("decor") || value.includes("장식")) {
-    return "decor";
-  }
-
-  return "unknown";
-}
-
-function toCm(value: number, unit?: string): number {
-  const u = (unit || "cm").toLowerCase();
-
-  if (u === "mm") return Math.round((value / 10) * 10) / 10;
-  if (u === "m") return Math.round(value * 100 * 10) / 10;
-
-  return Math.round(value * 10) / 10;
-}
-
-function makeLabelPattern(labels: string[]): RegExp {
-  const escaped = labels
-    .map((v) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join("|");
-
-  return new RegExp(
-    `(${escaped})\\s*[:：]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(cm|mm|m)?`,
-    "i"
-  );
 }
 
 function extractDimensionSection(html: string): string {
@@ -450,11 +277,9 @@ function normalizeDimensionSectionForParsing(sectionText: string): string {
     text = text.replace(new RegExp(`\\s*${escaped}\\s*:`, "g"), `\n${label}:`);
   }
 
-    text = text
-    .replace(
-      /(\d+(?:[.,]\d+)?\s*(?:cm|mm|m))(?=[가-힣A-Za-z])/g,
-      "$1\n"
-    )
+  text = normalizeJoinedDimensionLabels(text);
+
+  text = text
     .replace(/\n{2,}/g, "\n")
     .split("\n")
     .map((line) => line.trim())
@@ -590,32 +415,11 @@ function collectHeightCandidatesFromLines(params: {
     excludeIfLineHas = ["시트", "좌면", "좌석", "팔걸이", "다리", "포장", "배송", "패키지"],
   } = params;
 
-  const pattern = makeLabelPattern(labels);
-
-  const lines = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const values: number[] = [];
-
-  for (const line of lines) {
-    const match = line.match(pattern);
-    if (!match) continue;
-
-    const rawValue = match[2];
-    const unit = match[3];
-
-    const shouldExclude = excludeIfLineHas.some((kw) => line.includes(kw));
-    if (shouldExclude) continue;
-
-    const value = Number(rawValue.replace(",", "."));
-    if (Number.isFinite(value)) {
-      values.push(toCm(value, unit));
-    }
-  }
-
-  return values;
+  return collectLabeledDimensionCandidates({
+    text,
+    labels,
+    excludeIfLineHas,
+  });
 }
 
 function collectDimensionCandidatesFromLines(params: {
@@ -641,37 +445,11 @@ function collectDimensionCandidatesFromLines(params: {
     ],
   } = params;
 
-  const pattern = makeLabelPattern(labels);
-
-  const lines = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const values: number[] = [];
-
-  for (const line of lines) {
-    const match = line.match(pattern);
-    if (!match) continue;
-
-    const rawValue = match[2];
-    const unit = match[3];
-
-    const shouldExclude = excludeIfLineHas.some((kw) => line.includes(kw));
-    if (shouldExclude) continue;
-
-    const value = Number(rawValue.replace(",", "."));
-    if (Number.isFinite(value)) {
-      values.push(toCm(value, unit));
-    }
-  }
-
-  return values;
-}
-
-function maxOrNull(values: number[]): number | null {
-  if (values.length === 0) return null;
-  return Math.max(...values);
+  return collectLabeledDimensionCandidates({
+    text,
+    labels,
+    excludeIfLineHas,
+  });
 }
 
 function extractHeightFromLines(text: string): number | null {
@@ -864,7 +642,7 @@ export function parseIkeaPayload(raw: any): ParsedFurnitureProduct {
     height_cm: dims.height_cm,
     metadata_json: {
       raw_preview: typeof html === "string" ? html.slice(0, 300) : "",
-      dimension_debug: {
+      dimension_debug: buildParserDebug({
         html_length: typeof html === "string" ? html.length : 0,
         has_dimension_keyword:
           typeof html === "string"
@@ -877,8 +655,8 @@ export function parseIkeaPayload(raw: any): ParsedFurnitureProduct {
         height_cm: dims.height_cm,
         raw_dimension_text_preview:
           dims.raw_dimension_text?.slice(0, 1000) ?? null,
-        parser_version: "ikea-dim-v19",
-      },
+        parser_version: "ikea-dim-v20",
+      }),
     },
   };
 }

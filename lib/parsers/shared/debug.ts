@@ -1,4 +1,4 @@
-import type { ParserDebugMeta } from "./types";
+import type { ParserDebugMeta } from "@/lib/parsers/shared/types";
 
 export function buildParserDebug(params: ParserDebugMeta) {
   return {

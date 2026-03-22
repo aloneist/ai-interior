@@ -1,5 +1,8 @@
-import { splitLines, normalizeText } from "./text";
-import type { CollectLabeledDimensionCandidatesParams } from "./types";
+import {
+  normalizeText,
+  splitLines,
+} from "@/lib/parsers/shared/text";
+import type { CollectLabeledDimensionCandidatesParams } from "@/lib/parsers/shared/types";
 
 export function toCm(value: number, unit?: string): number {
   const u = (unit || "cm").toLowerCase();
