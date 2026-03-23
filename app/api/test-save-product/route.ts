@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { parseIkeaPayload } from '@/lib/parsers/ikea';
+import { parseIkeaPayload } from '@/lib/parsers/router';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET() {

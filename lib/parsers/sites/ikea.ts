@@ -129,6 +129,27 @@ function extractDimensionSection(html: string): string | null {
   });
 
   if (candidates.length === 0) {
+    $("section, article, div, li, details").each((_, el) => {
+      const t = textOf($, el);
+      if (!t) return;
+
+      const hasDimensionLabels =
+        t.includes("폭") ||
+        t.includes("깊이") ||
+        t.includes("등받이H") ||
+        t.includes("등받이 높이") ||
+        t.includes("높이") ||
+        t.includes("총높이") ||
+        t.includes("H(등쿠션포함)") ||
+        t.includes("H(쿠션포함)");
+
+      if (t.includes("치수") && hasDimensionLabels) {
+        candidates.push(t);
+      }
+    });
+  }
+
+  if (candidates.length === 0) {
     const text = htmlToVisibleText(html);
     const idx = text.indexOf("치수");
     if (idx >= 0) {
@@ -137,7 +158,54 @@ function extractDimensionSection(html: string): string | null {
     return text.slice(0, 1200).trim();
   }
 
-  return candidates[0]?.trim() || null;
+  const scored = candidates
+    .map((section) => {
+      let score = 0;
+
+      const labelCount =
+        section.match(
+          /(폭|깊이|높이|총높이|등받이H|등받이 높이|H\(등쿠션포함\)|H\(쿠션포함\))\s*[:：]?\s*\d/gi
+        )?.length ?? 0;
+
+      const unitCount =
+        section.match(/\d+(?:[.,]\d+)?\s*(cm|mm|m)\b/gi)?.length ?? 0;
+
+      score += labelCount * 12;
+      score += unitCount * 6;
+
+      if (section.includes("치수")) score += 10;
+      if (section.includes("등받이H")) score += 6;
+      if (section.includes("높이")) score += 8;
+      if (section.includes("총높이")) score += 8;
+      if (section.includes("H(등쿠션포함)")) score += 14;
+      if (section.includes("H(쿠션포함)")) score += 12;
+      if (section.includes("깊이")) score += 8;
+      if (section.includes("폭")) score += 8;
+
+      for (const kw of STOP_SECTION_KEYWORDS) {
+        if (kw !== "포장" && section.includes(kw)) score -= 8;
+      }
+
+      if (section.includes("제품 설명")) score -= 20;
+
+      return { section, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  let best = scored[0].section.trim();
+
+  const packagingKeywords = ["포장", "패키지", "배송"];
+  let cutIndex = best.length;
+
+  for (const keyword of packagingKeywords) {
+    const idx = best.indexOf(keyword);
+    if (idx > 0 && idx < cutIndex) {
+      cutIndex = idx;
+    }
+  }
+
+  best = best.slice(0, cutIndex).trim();
+  return best || null;
 }
 
 export function extractIkeaSnapshot(raw: any): RawProductSnapshot {
