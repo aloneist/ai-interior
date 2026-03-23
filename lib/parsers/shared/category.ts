@@ -1,65 +1,144 @@
-export function normalizeCategory(value: string): string | null {
-  const text = value.toLowerCase().replace(/\s+/g, " ").trim();
+export type FurnitureCategory =
+  | "sofa"
+  | "chair"
+  | "table"
+  | "storage"
+  | "bed"
+  | "lighting"
+  | "desk"
+  | "decor";
 
-  if (
-    text.includes("sofa") ||
-    text.includes("소파") ||
-    text.includes("2인용 소파") ||
-    text.includes("3인용 소파") ||
-    text.includes("1인용 소파") ||
-    text.includes("4인용 소파") ||
-    text.includes("소파베드") ||
-    text.includes("코너 소파") ||
-    text.includes("카우치 소파") ||
-    text.includes("모듈형 소파")
-  ) {
-    return "sofa";
-  }
+function hasAny(text: string, keywords: string[]) {
+  return keywords.some((kw) => text.includes(kw));
+}
 
-  if (
-    text.includes("chair") ||
-    text.includes("의자") ||
-    text.includes("암체어") ||
-    text.includes("식탁의자") ||
-    text.includes("라운지체어")
-  ) {
+export function normalizeCategory(input?: string | null): FurnitureCategory | null {
+  if (!input) return null;
+
+  const text = input.toLowerCase().replace(/\s+/g, " ").trim();
+
+  const chairKeywords = [
+    "chair",
+    "office chair",
+    "desk chair",
+    "conference chair",
+    "gaming chair",
+    "children's desk chair",
+    "childrens desk chair",
+    "children's chair",
+    "childrens chair",
+    "armchair",
+    "lounge chair",
+    "dining chair",
+    "stool",
+    "children's stool",
+    "childrens stool",
+    "sit/stand support",
+    "active sit/stand support",
+    "active sit stand support",
+    "액티브 서포트",
+    "의자",
+    "암체어",
+    "라운지체어",
+    "라운지 의자",
+    "식탁의자",
+    "식탁 의자",
+    "책상 의자",
+    "사무용 의자",
+    "회의의자",
+    "회의 의자",
+    "게이밍 의자",
+    "어린이용 의자",
+    "어린이 의자",
+    "어린이용 책상 의자",
+    "스툴",
+    "어린이스툴",
+    "어린이 스툴",
+  ];
+
+  if (hasAny(text, chairKeywords)) {
     return "chair";
   }
 
-  if (
-    text.includes("table") ||
-    text.includes("테이블") ||
-    text.includes("식탁") ||
-    text.includes("커피테이블") ||
-    text.includes("사이드테이블")
-  ) {
+  const sofaKeywords = [
+    "sofa",
+    "2-seat sofa",
+    "3-seat sofa",
+    "4-seat sofa",
+    "loveseat",
+    "chaise longue",
+    "sectional",
+    "corner sofa",
+    "sofa bed",
+    "카우치 소파",
+    "코너 소파",
+    "모듈형 소파",
+    "2인용소파",
+    "2인용 소파",
+    "3인용소파",
+    "3인용 소파",
+    "4인용소파",
+    "4인용 소파",
+    "1인용소파",
+    "1인용 소파",
+    "소파베드",
+    "소파 베드",
+    "긴의자",
+    "소파",
+  ];
+
+  if (hasAny(text, sofaKeywords)) {
+    return "sofa";
+  }
+
+  const tableKeywords = [
+    "table",
+    "dining table",
+    "coffee table",
+    "side table",
+    "테이블",
+    "식탁",
+    "커피테이블",
+    "커피 테이블",
+    "사이드테이블",
+    "사이드 테이블",
+  ];
+
+  if (hasAny(text, tableKeywords)) {
     return "table";
   }
 
-  if (
-    text.includes("storage") ||
-    text.includes("수납") ||
-    text.includes("선반") ||
-    text.includes("서랍") ||
-    text.includes("수납장") ||
-    text.includes("캐비닛")
-  ) {
+  const storageKeywords = [
+    "storage",
+    "cabinet",
+    "shelf",
+    "drawer",
+    "bookcase",
+    "수납",
+    "선반",
+    "서랍",
+    "수납장",
+    "캐비닛",
+    "책장",
+  ];
+
+  if (hasAny(text, storageKeywords)) {
     return "storage";
   }
 
-  if (text.includes("bed") || text.includes("침대")) {
+  if (hasAny(text, ["bed", "침대"])) {
     return "bed";
   }
 
-  if (text.includes("lamp") || text.includes("조명")) {
+  if (hasAny(text, ["lamp", "lighting", "조명", "램프"])) {
     return "lighting";
   }
 
-  if (text.includes("desk") || text.includes("책상")) {
+  if (hasAny(text, ["desk", "책상"])) {
     return "desk";
   }
 
-  if (text.includes("decor") || text.includes("장식")) {
+  if (hasAny(text, ["decor", "장식"])) {
     return "decor";
   }
 

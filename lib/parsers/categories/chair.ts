@@ -64,13 +64,16 @@ function normalizeDimensionSectionForParsing(sectionText: string): string {
     "시트 폭",
     "좌면 폭",
     "좌석 폭",
+    "지름",
+    "diameter",
+    "ø",
     "H(쿠션포함)",
     "높이(쿠션포함)",
   ];
 
   for (const label of boundaryLabels) {
     const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    text = text.replace(new RegExp(`\\s*${escaped}\\s*:`, "g"), `\n${label}:`);
+    text = text.replace(new RegExp(`\\s*${escaped}\\s*:`, "gi"), `\n${label}:`);
   }
 
   text = normalizeJoinedDimensionLabels(text);
@@ -216,10 +219,22 @@ function extractCompactDimensions(text: string): {
   };
 }
 
+function extractDiameterFromLines(text: string): number | null {
+  const diameterCandidates = collectDimensionCandidatesFromLines({
+    text,
+    labels: ["지름", "diameter", "ø"],
+  });
+
+  return maxOrNull(diameterCandidates);
+}
+
 function extractDimensions(sectionText: string | null): {
   width_cm: number | null;
   depth_cm: number | null;
   height_cm: number | null;
+  diameter_cm: number | null;
+  derived_width_from_diameter: boolean;
+  derived_depth_from_diameter: boolean;
   raw_dimension_text: string | null;
 } {
   if (!sectionText) {
@@ -227,6 +242,9 @@ function extractDimensions(sectionText: string | null): {
       width_cm: null,
       depth_cm: null,
       height_cm: null,
+      diameter_cm: null,
+      derived_width_from_diameter: false,
+      derived_depth_from_diameter: false,
       raw_dimension_text: null,
     };
   }
@@ -249,21 +267,37 @@ function extractDimensions(sectionText: string | null): {
 
   let height_cm = extractHeightFromLines(normalizedSectionText);
 
+  const diameter_cm = extractDiameterFromLines(normalizedSectionText);
+
+  let derived_width_from_diameter = false;
+  let derived_depth_from_diameter = false;
+
   if (width_cm == null || depth_cm == null || height_cm == null) {
     const compact = extractCompactDimensions(normalizedSectionText);
 
-    return {
-      width_cm: width_cm ?? compact.width_cm,
-      depth_cm: depth_cm ?? compact.depth_cm,
-      height_cm: height_cm ?? compact.height_cm,
-      raw_dimension_text: normalizedSectionText || null,
-    };
+    width_cm = width_cm ?? compact.width_cm;
+    depth_cm = depth_cm ?? compact.depth_cm;
+    height_cm = height_cm ?? compact.height_cm;
+  }
+
+  if (diameter_cm != null) {
+    if (width_cm == null) {
+      width_cm = diameter_cm;
+      derived_width_from_diameter = true;
+    }
+    if (depth_cm == null) {
+      depth_cm = diameter_cm;
+      derived_depth_from_diameter = true;
+    }
   }
 
   return {
     width_cm,
     depth_cm,
     height_cm,
+    diameter_cm,
+    derived_width_from_diameter,
+    derived_depth_from_diameter,
     raw_dimension_text: normalizedSectionText || null,
   };
 }
@@ -287,12 +321,15 @@ export function parseChairSnapshot(
     depth_cm: dims.depth_cm,
     height_cm: dims.height_cm,
     metadata_json: {
-      parser_version: "chair-category-v1",
+      parser_version: "chair-category-v2",
       source_site: snapshot.source_site,
       source_url: snapshot.source_url,
       category_hint: snapshot.category_hint,
       raw_dimension_text_preview:
         dims.raw_dimension_text?.slice(0, 1000) ?? null,
+      diameter_cm: dims.diameter_cm,
+      derived_width_from_diameter: dims.derived_width_from_diameter,
+      derived_depth_from_diameter: dims.derived_depth_from_diameter,
       site_metadata: snapshot.metadata_json ?? {},
     },
   };

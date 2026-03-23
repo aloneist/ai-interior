@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+
+type TestMode = "parser" | "import";
 
 type ImportJob = {
   id?: string | number;
@@ -29,10 +31,92 @@ type ImportJob = {
   updated_at?: string;
 };
 
+type ParserResponseShape = {
+  success?: boolean;
+  source_url?: string;
+  source_site?: string;
+  html_length?: number;
+  result?: {
+    v2?: {
+      product_name?: string | null;
+      brand?: string | null;
+      category?: string | null;
+      price?: number | null;
+      currency?: string | null;
+      image_url?: string | null;
+      description?: string | null;
+      color?: string | null;
+      material?: string | null;
+      width_cm?: number | null;
+      depth_cm?: number | null;
+      height_cm?: number | null;
+      metadata_json?: any;
+    };
+    snapshot?: {
+      source_site?: string | null;
+      source_url?: string | null;
+      title?: string | null;
+      price_text?: string | null;
+      image_url?: string | null;
+      description?: string | null;
+      category_hint?: string | null;
+      dimension_section_text?: string | null;
+      metadata_json?: any;
+    };
+    diff?: any;
+    summary?: {
+      product_name?: string | null;
+      brand?: string | null;
+      category?: string | null;
+      price?: number | null;
+      image_url?: string | null;
+      width_cm?: number | null;
+      depth_cm?: number | null;
+      height_cm?: number | null;
+      diameter_cm?: number | null;
+      derived_width_from_diameter?: boolean;
+      derived_depth_from_diameter?: boolean;
+    };
+    parser_debug?: any;
+    parser_notes?: string | null;
+  };
+};
+
+type TestViewModel = {
+  name?: string | null;
+  brand?: string | null;
+  category?: string | null;
+  price?: number | null;
+  material?: string | null;
+
+  width_cm?: number | null;
+  depth_cm?: number | null;
+  height_cm?: number | null;
+  diameter_cm?: number | null;
+  derived_width_from_diameter?: boolean;
+  derived_depth_from_diameter?: boolean;
+
+  image_urls?: string[];
+  option_summaries?: string[];
+
+  parser_version?: string | null;
+  raw_dimension_preview?: string | null;
+  notes?: string | null;
+  debug?: string | null;
+
+  source_site?: string | null;
+  source_url?: string | null;
+  affiliate_url?: string | null;
+  status?: string | null;
+  confidence?: number | null;
+};
+
 type RunResult = {
   url: string;
+  mode: TestMode;
   ok: boolean;
-  importJob?: ImportJob | null;
+  raw?: unknown;
+  view?: TestViewModel | null;
   error?: string | null;
 };
 
@@ -56,6 +140,7 @@ type FieldCompare = {
 const TOKEN_STORAGE_KEY = "admin_furniture_test_token";
 const URLS_STORAGE_KEY = "admin_furniture_test_urls";
 const EXPECTED_STORAGE_KEY = "admin_furniture_test_expected_map";
+const MODE_STORAGE_KEY = "admin_furniture_test_mode";
 
 function parseUrls(input: string): string[] {
   return input
@@ -83,49 +168,6 @@ function formatDim(value?: number | null) {
   return `${value} cm`;
 }
 
-function getNotesPreview(notes?: string | null) {
-  if (!notes) return "-";
-
-  try {
-    const parsed = JSON.parse(notes);
-    if (parsed?.parser_debug) {
-      return prettyJson(parsed.parser_debug);
-    }
-    return prettyJson(parsed);
-  } catch {
-    return notes;
-  }
-}
-
-function getParserDebug(job?: ImportJob | null) {
-  if (!job?.extraction_notes) return null;
-
-  try {
-    const parsed = JSON.parse(job.extraction_notes);
-    return parsed?.parser_debug ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function getParserVersion(job?: ImportJob | null) {
-  const debug = getParserDebug(job);
-  return debug?.parser_version ?? "-";
-}
-
-function getRawDimensionPreview(job?: ImportJob | null) {
-  const debug = getParserDebug(job);
-  return debug?.raw_dimension_text_preview ?? "-";
-}
-
-function getDimensionSummary(job?: ImportJob | null) {
-  if (!job) return "-";
-  const w = job.extracted_width_cm ?? "null";
-  const d = job.extracted_depth_cm ?? "null";
-  const h = job.extracted_height_cm ?? "null";
-  return `W ${w} / D ${d} / H ${h}`;
-}
-
 function normalizeString(value: unknown) {
   return String(value ?? "")
     .trim()
@@ -148,7 +190,10 @@ function compareStringField(expected: string, actual: string): CompareStatus {
   return normalizeString(expected) === normalizeString(actual) ? "PASS" : "FAIL";
 }
 
-function compareNumberField(expected: string, actual: number | null | undefined): CompareStatus {
+function compareNumberField(
+  expected: string,
+  actual: number | null | undefined
+): CompareStatus {
   if (!expected.trim()) return "SKIP";
   const e = normalizeNumberString(expected);
   const a =
@@ -167,8 +212,202 @@ function getExpectedMapFromStorage(): Record<string, ExpectedRecord> {
   }
 }
 
+function safeJsonParse(value?: string | null) {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeParserResult(
+  url: string,
+  data: ParserResponseShape
+): TestViewModel {
+  const result = data?.result ?? {};
+  const parsed = result.v2 ?? {};
+  const snapshot = result.snapshot ?? {};
+  const summary = result.summary ?? {};
+  const parserDebug = result.parser_debug ?? null;
+  const parserNotes = result.parser_notes ?? null;
+  const parsedMeta = parsed?.metadata_json ?? {};
+  const snapshotDebug = snapshot?.metadata_json?.debug ?? {};
+
+  const rawDimensionPreview =
+    parserDebug?.raw_dimension_text_preview ??
+    parsedMeta?.raw_dimension_text_preview ??
+    snapshot?.dimension_section_text ??
+    snapshotDebug?.raw_dimension_text_preview ??
+    null;
+
+  const parserVersion =
+    parserDebug?.parser_version ??
+    parsedMeta?.parser_version ??
+    snapshotDebug?.parser_version ??
+    snapshot?.metadata_json?.parser_version ??
+    "-";
+
+  const imageUrl =
+    summary?.image_url ??
+    parsed?.image_url ??
+    snapshot?.image_url ??
+    null;
+
+  return {
+    name: summary?.product_name ?? parsed?.product_name ?? snapshot?.title ?? null,
+    brand:
+      summary?.brand ??
+      parsed?.brand ??
+      (snapshot?.source_site === "ikea" ? "IKEA" : null),
+    category: summary?.category ?? parsed?.category ?? snapshot?.category_hint ?? null,
+    price:
+      typeof summary?.price === "number" && Number.isFinite(summary.price)
+        ? summary.price
+        : typeof parsed?.price === "number" && Number.isFinite(parsed.price)
+        ? parsed.price
+        : null,
+    material: parsed?.material ?? null,
+
+    width_cm:
+      typeof summary?.width_cm === "number" && Number.isFinite(summary.width_cm)
+        ? summary.width_cm
+        : typeof parsed?.width_cm === "number" && Number.isFinite(parsed.width_cm)
+        ? parsed.width_cm
+        : null,
+    depth_cm:
+      typeof summary?.depth_cm === "number" && Number.isFinite(summary.depth_cm)
+        ? summary.depth_cm
+        : typeof parsed?.depth_cm === "number" && Number.isFinite(parsed.depth_cm)
+        ? parsed.depth_cm
+        : null,
+    height_cm:
+      typeof summary?.height_cm === "number" && Number.isFinite(summary.height_cm)
+        ? summary.height_cm
+        : typeof parsed?.height_cm === "number" && Number.isFinite(parsed.height_cm)
+        ? parsed.height_cm
+        : null,
+    diameter_cm:
+  typeof parsed?.metadata_json?.diameter_cm === "number" &&
+  Number.isFinite(parsed.metadata_json.diameter_cm)
+    ? parsed.metadata_json.diameter_cm
+    : typeof result?.summary?.diameter_cm === "number" &&
+      Number.isFinite(result.summary.diameter_cm)
+    ? result.summary.diameter_cm
+    : null,
+
+derived_width_from_diameter:
+  summary?.derived_width_from_diameter ??
+  parsed?.metadata_json?.derived_width_from_diameter ??
+  false,
+
+derived_depth_from_diameter:
+  summary?.derived_depth_from_diameter ??
+  parsed?.metadata_json?.derived_depth_from_diameter ??
+  false,
+
+    image_urls: imageUrl ? [imageUrl] : [],
+    option_summaries: [],
+
+    parser_version: parserVersion,
+    raw_dimension_preview: rawDimensionPreview,
+    notes: parserNotes || null,
+    debug: parserDebug ? prettyJson(parserDebug) : null,
+
+    source_site: data?.source_site ?? snapshot?.source_site ?? "ikea",
+    source_url: data?.source_url ?? snapshot?.source_url ?? url,
+    affiliate_url: data?.source_url ?? snapshot?.source_url ?? url,
+    status: "parser_test",
+    confidence: null,
+    
+  };
+}
+
+function normalizeImportResult(url: string, data: any): TestViewModel {
+  const job: ImportJob | null = data?.import_job ?? null;
+  const parsedNotes = safeJsonParse(job?.extraction_notes);
+  const parserDebug = parsedNotes?.parser_debug ?? null;
+
+  return {
+    name: job?.extracted_name ?? null,
+    brand: job?.extracted_brand ?? null,
+    category: job?.extracted_category ?? null,
+    price:
+      typeof job?.extracted_price === "number" &&
+      Number.isFinite(job.extracted_price)
+        ? job.extracted_price
+        : null,
+    material: job?.extracted_material ?? null,
+
+    width_cm:
+      typeof job?.extracted_width_cm === "number" &&
+      Number.isFinite(job.extracted_width_cm)
+        ? job.extracted_width_cm
+        : null,
+    depth_cm:
+      typeof job?.extracted_depth_cm === "number" &&
+      Number.isFinite(job.extracted_depth_cm)
+        ? job.extracted_depth_cm
+        : null,
+    height_cm:
+      typeof job?.extracted_height_cm === "number" &&
+      Number.isFinite(job.extracted_height_cm)
+        ? job.extracted_height_cm
+        : null,
+
+    image_urls: Array.isArray(job?.extracted_image_urls)
+      ? job!.extracted_image_urls!.filter(Boolean)
+      : [],
+    option_summaries: Array.isArray(job?.extracted_option_summaries)
+      ? job!.extracted_option_summaries!.filter(Boolean)
+      : [],
+
+    parser_version: parserDebug?.parser_version ?? "-",
+    raw_dimension_preview: parserDebug?.raw_dimension_text_preview ?? null,
+    notes:
+      typeof job?.extraction_notes === "string" && job.extraction_notes.trim()
+        ? job.extraction_notes
+        : null,
+    debug: parserDebug ? prettyJson(parserDebug) : null,
+
+    source_site: job?.source_site ?? job?.extracted_source_site ?? null,
+    source_url: job?.source_url ?? url,
+    affiliate_url: job?.extracted_affiliate_url ?? null,
+    status: job?.status ?? null,
+    confidence:
+      typeof job?.extracted_confidence === "number" &&
+      Number.isFinite(job.extracted_confidence)
+        ? job.extracted_confidence
+        : null,
+  };
+}
+
+function getNotesPreview(view?: TestViewModel | null) {
+  return view?.notes ?? "-";
+}
+
+function getDebugPreview(view?: TestViewModel | null) {
+  return view?.debug ?? "-";
+}
+
+function getParserVersion(view?: TestViewModel | null) {
+  return view?.parser_version ?? "-";
+}
+
+function getRawDimensionPreview(view?: TestViewModel | null) {
+  return view?.raw_dimension_preview ?? "-";
+}
+
+function getDimensionSummary(view?: TestViewModel | null) {
+  if (!view) return "-";
+  const w = view.width_cm ?? "null";
+  const d = view.depth_cm ?? "null";
+  const h = view.height_cm ?? "null";
+  return `W ${w} / D ${d} / H ${h}`;
+}
+
 function getComparison(result: RunResult, expected?: ExpectedRecord) {
-  if (!result.ok || !result.importJob) {
+  if (!result.ok || !result.view) {
     return {
       overall: "FAIL" as CompareStatus,
       fields: [] as FieldCompare[],
@@ -178,65 +417,38 @@ function getComparison(result: RunResult, expected?: ExpectedRecord) {
     };
   }
 
-  const job = result.importJob;
+  const view = result.view;
 
   const fields: FieldCompare[] = [
     {
       label: "category",
       expected: expected?.expected_category?.trim() || "-",
-      actual: job.extracted_category || "-",
-      status: compareStringField(
-        expected?.expected_category || "",
-        job.extracted_category || ""
-      ),
+      actual: view.category || "-",
+      status: compareStringField(expected?.expected_category || "", view.category || ""),
     },
     {
       label: "price",
       expected: expected?.expected_price?.trim() || "-",
-      actual:
-        typeof job.extracted_price === "number"
-          ? String(job.extracted_price)
-          : "-",
-      status: compareNumberField(
-        expected?.expected_price || "",
-        job.extracted_price
-      ),
+      actual: typeof view.price === "number" ? String(view.price) : "-",
+      status: compareNumberField(expected?.expected_price || "", view.price),
     },
     {
       label: "width",
       expected: expected?.expected_width_cm?.trim() || "-",
-      actual:
-        typeof job.extracted_width_cm === "number"
-          ? String(job.extracted_width_cm)
-          : "-",
-      status: compareNumberField(
-        expected?.expected_width_cm || "",
-        job.extracted_width_cm
-      ),
+      actual: typeof view.width_cm === "number" ? String(view.width_cm) : "-",
+      status: compareNumberField(expected?.expected_width_cm || "", view.width_cm),
     },
     {
       label: "depth",
       expected: expected?.expected_depth_cm?.trim() || "-",
-      actual:
-        typeof job.extracted_depth_cm === "number"
-          ? String(job.extracted_depth_cm)
-          : "-",
-      status: compareNumberField(
-        expected?.expected_depth_cm || "",
-        job.extracted_depth_cm
-      ),
+      actual: typeof view.depth_cm === "number" ? String(view.depth_cm) : "-",
+      status: compareNumberField(expected?.expected_depth_cm || "", view.depth_cm),
     },
     {
       label: "height",
       expected: expected?.expected_height_cm?.trim() || "-",
-      actual:
-        typeof job.extracted_height_cm === "number"
-          ? String(job.extracted_height_cm)
-          : "-",
-      status: compareNumberField(
-        expected?.expected_height_cm || "",
-        job.extracted_height_cm
-      ),
+      actual: typeof view.height_cm === "number" ? String(view.height_cm) : "-",
+      status: compareNumberField(expected?.expected_height_cm || "", view.height_cm),
     },
   ];
 
@@ -268,6 +480,7 @@ function getStatusTone(status: CompareStatus) {
 }
 
 export default function FurnitureTestPage() {
+  const [mode, setMode] = useState<TestMode>("parser");
   const [token, setToken] = useState("");
   const [urlsText, setUrlsText] = useState("");
   const [expectedMap, setExpectedMap] = useState<Record<string, ExpectedRecord>>(
@@ -281,10 +494,13 @@ export default function FurnitureTestPage() {
     const savedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY) || "";
     const savedUrls = window.localStorage.getItem(URLS_STORAGE_KEY) || "";
     const savedExpectedMap = getExpectedMapFromStorage();
+    const savedMode = (window.localStorage.getItem(MODE_STORAGE_KEY) ||
+      "parser") as TestMode;
 
     setToken(savedToken);
     setUrlsText(savedUrls);
     setExpectedMap(savedExpectedMap);
+    setMode(savedMode === "import" ? "import" : "parser");
   }, []);
 
   useEffect(() => {
@@ -301,6 +517,10 @@ export default function FurnitureTestPage() {
       JSON.stringify(expectedMap)
     );
   }, [expectedMap]);
+
+  useEffect(() => {
+    window.localStorage.setItem(MODE_STORAGE_KEY, mode);
+  }, [mode]);
 
   const urls = useMemo(() => parseUrls(urlsText), [urlsText]);
 
@@ -352,7 +572,10 @@ export default function FurnitureTestPage() {
 
   async function runSingle(url: string): Promise<RunResult> {
     try {
-      const res = await fetch("/api/import-product", {
+      const endpoint =
+        mode === "parser" ? "/api/test-parser" : "/api/import-product";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -366,19 +589,29 @@ export default function FurnitureTestPage() {
       if (!res.ok) {
         return {
           url,
+          mode,
           ok: false,
+          raw: data,
           error: data?.message || data?.error || `HTTP ${res.status}`,
         };
       }
 
+      const view =
+        mode === "parser"
+          ? normalizeParserResult(url, data as ParserResponseShape)
+          : normalizeImportResult(url, data);
+
       return {
         url,
+        mode,
         ok: true,
-        importJob: data?.import_job ?? null,
+        raw: data,
+        view,
       };
     } catch (error: any) {
       return {
         url,
+        mode,
         ok: false,
         error: error?.message || "Unknown error",
       };
@@ -418,14 +651,17 @@ export default function FurnitureTestPage() {
   }
 
   function handleClearAll() {
+    setMode("parser");
     setToken("");
     setUrlsText("");
     setExpectedMap({});
     setResults([]);
     setCurrentUrl(null);
+
     window.localStorage.removeItem(TOKEN_STORAGE_KEY);
     window.localStorage.removeItem(URLS_STORAGE_KEY);
     window.localStorage.removeItem(EXPECTED_STORAGE_KEY);
+    window.localStorage.removeItem(MODE_STORAGE_KEY);
   }
 
   function updateExpected(url: string, patch: Partial<ExpectedRecord>) {
@@ -444,14 +680,42 @@ export default function FurnitureTestPage() {
         <header style={styles.header}>
           <h1 style={styles.title}>가구 파서 테스트 콘솔</h1>
           <p style={styles.desc}>
-            URL별 정답값을 적어두고 import-product 결과와 자동 비교하는 검증
-            화면이야. 핵심 필드는 category / price / width / depth / height만
-            자동 판정한다.
+            Parser Test는 새 parser 구조 결과를 확인하고, Import Test는 실제
+            import-product 적재 결과를 확인한다. 추출 노트는 사람이 읽기 쉬운
+            parser_notes를 우선 표시한다.
           </p>
         </header>
 
         <section style={styles.panel}>
-          <label style={styles.label}>ADMIN TOKEN</label>
+          <label style={styles.label}>TEST MODE</label>
+          <div style={styles.modeRow}>
+            <button
+              type="button"
+              onClick={() => setMode("parser")}
+              style={{
+                ...styles.modeButton,
+                ...(mode === "parser"
+                  ? styles.modeButtonActive
+                  : styles.modeButtonInactive),
+              }}
+            >
+              Parser Test
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("import")}
+              style={{
+                ...styles.modeButton,
+                ...(mode === "import"
+                  ? styles.modeButtonActive
+                  : styles.modeButtonInactive),
+              }}
+            >
+              Import Test
+            </button>
+          </div>
+
+          <label style={{ ...styles.label, marginTop: 16 }}>ADMIN TOKEN</label>
           <input
             type="password"
             value={token}
@@ -472,6 +736,7 @@ export default function FurnitureTestPage() {
           />
 
           <div style={styles.helperRow}>
+            <span>현재 모드: {mode === "parser" ? "Parser Test" : "Import Test"}</span>
             <span>감지된 URL 수: {urls.length}</span>
             {isRunning && currentUrl ? (
               <span>진행 중: {currentUrl}</span>
@@ -632,7 +897,7 @@ export default function FurnitureTestPage() {
             <div style={styles.emptyBox}>아직 실행 결과가 없어.</div>
           ) : (
             orderedResults.map((result, idx) => {
-              const job = result.importJob;
+              const view = result.view;
               const expected = expectedMap[result.url];
               const comparison = getComparison(result, expected);
 
@@ -666,6 +931,9 @@ export default function FurnitureTestPage() {
                         >
                           {result.ok ? comparison.overall : "FAIL"}
                         </span>
+                        <span style={styles.modeBadge}>
+                          {result.mode === "parser" ? "Parser" : "Import"}
+                        </span>
                       </div>
                       <div style={styles.cardUrl}>{result.url}</div>
                     </div>
@@ -678,49 +946,37 @@ export default function FurnitureTestPage() {
                   ) : (
                     <>
                       <div style={styles.grid}>
-                        <Field label="상품명" value={job?.extracted_name} />
-                        <Field label="브랜드" value={job?.extracted_brand} />
+                        <Field label="상품명" value={view?.name} />
+                        <Field label="브랜드" value={view?.brand} />
+                        <Field label="카테고리" value={view?.category} />
+                        <Field label="가격" value={formatPrice(view?.price)} />
+                        <Field label="재질" value={view?.material} />
+                        <Field label="폭" value={formatDim(view?.width_cm)} />
+                        <Field label="깊이" value={formatDim(view?.depth_cm)} />
+                        <Field label="높이" value={formatDim(view?.height_cm)} />
+                        <Field label="지름" value={formatDim(view?.diameter_cm)} />
                         <Field
-                          label="카테고리"
-                          value={job?.extracted_category}
+                          label="폭=지름 파생"
+                            value={view?.derived_width_from_diameter ? "true" : "false"}
                         />
                         <Field
-                          label="가격"
-                          value={formatPrice(job?.extracted_price)}
-                        />
-                        <Field label="재질" value={job?.extracted_material} />
-                        <Field
-                          label="폭"
-                          value={formatDim(job?.extracted_width_cm)}
-                        />
-                        <Field
-                          label="깊이"
-                          value={formatDim(job?.extracted_depth_cm)}
-                        />
-                        <Field
-                          label="높이"
-                          value={formatDim(job?.extracted_height_cm)}
+                          label="깊이=지름 파생"
+                            value={view?.derived_depth_from_diameter ? "true" : "false"}
                         />
                         <Field
                           label="신뢰도"
                           value={
-                            typeof job?.extracted_confidence === "number"
-                              ? `${job.extracted_confidence}`
+                            typeof view?.confidence === "number"
+                              ? `${view.confidence}`
                               : "-"
                           }
                         />
-                        <Field label="상태" value={job?.status} />
-                        <Field
-                          label="source_site"
-                          value={job?.source_site || job?.extracted_source_site}
-                        />
-                        <Field
-                          label="affiliate_url"
-                          value={job?.extracted_affiliate_url}
-                        />
+                        <Field label="상태" value={view?.status} />
+                        <Field label="source_site" value={view?.source_site} />
+                        <Field label="affiliate_url" value={view?.affiliate_url} />
                         <Field
                           label="parser_version"
-                          value={getParserVersion(job)}
+                          value={getParserVersion(view)}
                         />
                       </div>
 
@@ -761,14 +1017,14 @@ export default function FurnitureTestPage() {
 
                       <div style={styles.subSection}>
                         <div style={styles.subTitle}>치수 요약</div>
-                        <pre style={styles.pre}>{getDimensionSummary(job)}</pre>
+                        <pre style={styles.pre}>{getDimensionSummary(view)}</pre>
                       </div>
 
                       <div style={styles.subSection}>
                         <div style={styles.subTitle}>이미지 URL</div>
                         <pre style={styles.pre}>
-                          {job?.extracted_image_urls?.length
-                            ? prettyJson(job.extracted_image_urls)
+                          {view?.image_urls?.length
+                            ? prettyJson(view.image_urls)
                             : "-"}
                         </pre>
                       </div>
@@ -776,22 +1032,25 @@ export default function FurnitureTestPage() {
                       <div style={styles.subSection}>
                         <div style={styles.subTitle}>옵션 요약</div>
                         <pre style={styles.pre}>
-                          {job?.extracted_option_summaries?.length
-                            ? prettyJson(job.extracted_option_summaries)
+                          {view?.option_summaries?.length
+                            ? prettyJson(view.option_summaries)
                             : "-"}
                         </pre>
                       </div>
 
                       <div style={styles.subSection}>
                         <div style={styles.subTitle}>치수 원문 미리보기</div>
-                        <pre style={styles.pre}>{getRawDimensionPreview(job)}</pre>
+                        <pre style={styles.pre}>{getRawDimensionPreview(view)}</pre>
                       </div>
 
                       <div style={styles.subSection}>
-                        <div style={styles.subTitle}>추출 노트 / parser debug</div>
-                        <pre style={styles.pre}>
-                          {getNotesPreview(job?.extraction_notes)}
-                        </pre>
+                        <div style={styles.subTitle}>추출 노트</div>
+                        <pre style={styles.pre}>{getNotesPreview(view)}</pre>
+                      </div>
+
+                      <div style={styles.subSection}>
+                        <div style={styles.subTitle}>parser debug</div>
+                        <pre style={styles.pre}>{getDebugPreview(view)}</pre>
                       </div>
                     </>
                   )}
@@ -822,7 +1081,7 @@ function Field({
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   page: {
     minHeight: "100vh",
     background: "#0b1220",
@@ -911,6 +1170,28 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#94a3b8",
     fontSize: 13,
     flexWrap: "wrap",
+  },
+  modeRow: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  modeButton: {
+    borderRadius: 12,
+    padding: "10px 16px",
+    fontSize: 14,
+    fontWeight: 800,
+    cursor: "pointer",
+    border: "1px solid #334155",
+  },
+  modeButtonActive: {
+    background: "#2563eb",
+    color: "#eff6ff",
+    border: "1px solid #2563eb",
+  },
+  modeButtonInactive: {
+    background: "#0f172a",
+    color: "#cbd5e1",
   },
   buttonRow: {
     display: "flex",
@@ -1065,6 +1346,18 @@ const styles: Record<string, React.CSSProperties> = {
     wordBreak: "break-all",
     fontSize: 13,
     lineHeight: 1.5,
+  },
+  modeBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+    padding: "4px 10px",
+    fontSize: 12,
+    fontWeight: 800,
+    background: "rgba(59,130,246,0.14)",
+    color: "#93c5fd",
+    border: "1px solid rgba(59,130,246,0.35)",
   },
   badge: {
     display: "inline-flex",
