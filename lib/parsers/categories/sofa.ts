@@ -200,8 +200,12 @@ function collectDimensionCandidatesFromLines(params: {
   });
 }
 
-function extractHeightFromLines(text: string): number | null {
-  const primaryHeightCandidates = collectHeightCandidatesFromLines({
+function extractHeightCandidatesFromLines(text: string): {
+  overall_height_cm: number | null;
+  backrest_height_cm: number | null;
+  resolved_height_cm: number | null;
+} {
+  const overallHeightCandidates = collectHeightCandidatesFromLines({
     text,
     labels: [
       "H(등쿠션포함)",
@@ -216,20 +220,19 @@ function extractHeightFromLines(text: string): number | null {
     ],
   });
 
-  if (primaryHeightCandidates.length > 0) {
-    return maxOrNull(primaryHeightCandidates);
-  }
-
-  const secondaryHeightCandidates = collectHeightCandidatesFromLines({
+  const backrestHeightCandidates = collectHeightCandidatesFromLines({
     text,
     labels: ["등받이H", "등받이 높이"],
   });
 
-  if (secondaryHeightCandidates.length > 0) {
-    return maxOrNull(secondaryHeightCandidates);
-  }
+  const overall_height_cm = maxOrNull(overallHeightCandidates);
+  const backrest_height_cm = maxOrNull(backrestHeightCandidates);
 
-  return null;
+  return {
+    overall_height_cm,
+    backrest_height_cm,
+    resolved_height_cm: overall_height_cm ?? backrest_height_cm,
+  };
 }
 
 function extractCompactDimensions(text: string): {
@@ -286,6 +289,8 @@ function extractDimensions(sectionText: string | null): {
   width_cm: number | null;
   depth_cm: number | null;
   height_cm: number | null;
+  overall_height_cm: number | null;
+  backrest_height_cm: number | null;
   raw_dimension_text: string | null;
 } {
   if (!sectionText) {
@@ -329,25 +334,33 @@ function extractDimensions(sectionText: string | null): {
     depth_cm = maxOrNull(fallbackDepthCandidates);
   }
 
-  let height_cm = extractHeightFromLines(normalizedSectionText);
+  const heightCandidates = extractHeightCandidatesFromLines(normalizedSectionText);
 
-  if (width_cm == null || depth_cm == null || height_cm == null) {
-    const compact = extractCompactDimensions(normalizedSectionText);
+let height_cm = heightCandidates.resolved_height_cm;
+let overall_height_cm = heightCandidates.overall_height_cm;
+let backrest_height_cm = heightCandidates.backrest_height_cm;
 
-    return {
-      width_cm: width_cm ?? compact.width_cm,
-      depth_cm: depth_cm ?? compact.depth_cm,
-      height_cm: height_cm ?? compact.height_cm,
-      raw_dimension_text: normalizedSectionText || null,
-    };
-  }
+if (width_cm == null || depth_cm == null || height_cm == null) {
+  const compact = extractCompactDimensions(normalizedSectionText);
 
   return {
-    width_cm,
-    depth_cm,
-    height_cm,
+    width_cm: width_cm ?? compact.width_cm,
+    depth_cm: depth_cm ?? compact.depth_cm,
+    height_cm: height_cm ?? compact.height_cm,
+    overall_height_cm,
+    backrest_height_cm,
     raw_dimension_text: normalizedSectionText || null,
   };
+}
+
+return {
+  width_cm,
+  depth_cm,
+  height_cm,
+  overall_height_cm,
+  backrest_height_cm,
+  raw_dimension_text: normalizedSectionText || null,
+};
 }
 
 export function parseSofaSnapshot(
@@ -369,12 +382,14 @@ export function parseSofaSnapshot(
     depth_cm: dims.depth_cm,
     height_cm: dims.height_cm,
     metadata_json: {
-      parser_version: "sofa-category-v1",
-      source_site: snapshot.source_site,
-      source_url: snapshot.source_url,
-      category_hint: snapshot.category_hint,
-      raw_dimension_text_preview: dims.raw_dimension_text?.slice(0, 1000) ?? null,
-      site_metadata: snapshot.metadata_json ?? {},
-    },
+  parser_version: "sofa-category-v2",
+  source_site: snapshot.source_site,
+  source_url: snapshot.source_url,
+  category_hint: snapshot.category_hint,
+  raw_dimension_text_preview: dims.raw_dimension_text?.slice(0, 1000) ?? null,
+  overall_height_cm: dims.overall_height_cm,
+  backrest_height_cm: dims.backrest_height_cm,
+  site_metadata: snapshot.metadata_json ?? {},
+},
   };
 }

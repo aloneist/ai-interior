@@ -24,17 +24,22 @@ export function compareIkeaParsers(raw: any) {
     v2,
     snapshot,
     diff: {
-      product_name: v2.product_name,
-      price: v2.price,
-      image_url: v2.image_url,
-      category: v2.category,
-      width_cm: v2.width_cm,
-      depth_cm: v2.depth_cm,
-      height_cm: v2.height_cm,
-      raw_dimension_text_preview:
-        v2.metadata_json?.raw_dimension_text_preview ?? null,
-      snapshot_dimension_text_preview:
-        snapshot.metadata_json?.debug?.raw_dimension_text_preview ?? null,
-    },
+  product_name: v2.product_name,
+  price: v2.price,
+  image_url: v2.image_url,
+  category_hint: snapshot.category_hint,
+  category: v2.category,
+  width_cm: v2.width_cm,
+  depth_cm: v2.depth_cm,
+  height_cm: v2.height_cm,
+  overall_height_cm: v2.metadata_json?.overall_height_cm ?? null,
+  backrest_height_cm: v2.metadata_json?.backrest_height_cm ?? null,
+  derived_depth_from_diameter:
+    v2.metadata_json?.derived_depth_from_diameter ?? null,
+  raw_dimension_text_preview:
+    v2.metadata_json?.raw_dimension_text_preview ?? null,
+  snapshot_dimension_text_preview:
+    snapshot.metadata_json?.debug?.raw_dimension_text_preview ?? null,
+},
   };
 }
