@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import { parseIkeaPayload } from "@/lib/parsers";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -13,23 +14,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-type ExtractedAiResult = {
-  extracted_name?: string | null;
-  extracted_brand?: string | null;
-  extracted_category?: string | null;
-  extracted_price?: number | null;
+type EnrichedAiResult = {
   extracted_material?: string | null;
-  extracted_width_cm?: number | null;
-  extracted_depth_cm?: number | null;
-  extracted_height_cm?: number | null;
   extracted_color_options?: string[];
   extracted_size_label?: string | null;
   extracted_capacity_label?: string | null;
-  extracted_image_urls?: string[];
   extracted_source_variant_ids?: string[];
   extracted_option_summaries?: string[];
-  extracted_source_site?: string | null;
-  extracted_affiliate_url?: string | null;
   extracted_confidence?: number | null;
   extraction_notes?: string | null;
 };
@@ -147,6 +138,57 @@ function normalizeCategory(value: string): string | null {
   return null;
 }
 
+function mergeImageUrls(
+  parserImageUrl: string | null | undefined,
+  aiImageUrls: unknown
+): string[] {
+  const aiUrls = toStringArray(aiImageUrls);
+  const merged = [
+    ...(parserImageUrl ? [parserImageUrl] : []),
+    ...aiUrls,
+  ].filter(Boolean);
+
+  return merged.filter((url, index, arr) => arr.indexOf(url) === index);
+}
+
+function buildExtractionNotes(params: {
+  parserResult: any | null;
+  aiResult: EnrichedAiResult | null;
+}) {
+  const { parserResult, aiResult } = params;
+
+  return JSON.stringify(
+    {
+      parser_debug: {
+        parser_version: parserResult?.metadata_json?.parser_version ?? null,
+        source_site: parserResult?.metadata_json?.source_site ?? null,
+        source_url: parserResult?.metadata_json?.source_url ?? null,
+        category_hint: parserResult?.metadata_json?.category_hint ?? null,
+        raw_dimension_text_preview:
+          parserResult?.metadata_json?.raw_dimension_text_preview ?? null,
+        diameter_cm: parserResult?.metadata_json?.diameter_cm ?? null,
+        derived_width_from_diameter:
+          parserResult?.metadata_json?.derived_width_from_diameter ?? false,
+        derived_depth_from_diameter:
+          parserResult?.metadata_json?.derived_depth_from_diameter ?? false,
+        site_metadata: parserResult?.metadata_json?.site_metadata ?? null,
+      },
+      ai_enrichment: {
+        material: aiResult?.extracted_material ?? null,
+        color_options: aiResult?.extracted_color_options ?? [],
+        size_label: aiResult?.extracted_size_label ?? null,
+        capacity_label: aiResult?.extracted_capacity_label ?? null,
+        source_variant_ids: aiResult?.extracted_source_variant_ids ?? [],
+        option_summaries: aiResult?.extracted_option_summaries ?? [],
+        confidence: aiResult?.extracted_confidence ?? null,
+        notes: aiResult?.extraction_notes ?? null,
+      },
+    },
+    null,
+    2
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const token = req.headers.get("x-admin-token");
@@ -182,117 +224,121 @@ export async function POST(req: Request) {
     }
 
     const html = await pageRes.text();
-    const htmlSnippet = html.slice(0, 40000);
-    const htmlLength = html.length;
-    const hasDimensionKeyword = detectDimensionKeyword(html);
+const htmlSnippet = html.slice(0, 40000);
+const htmlLength = html.length;
+const hasDimensionKeyword = detectDimensionKeyword(html);
 
-    const aiRes = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: `
-You are a commerce product extraction engine.
-Extract structured product data from the given product page HTML.
-Return ONLY valid JSON. No explanation.
+const raw = {
+  url: normalizedUrl,
+  full_html: html,
+};
 
-Return this exact structure:
+const parserResult =
+  sourceSite === "ikea" ? parseIkeaPayload(raw) : null;
+
+const aiRes = await openai.chat.completions.create({
+  model: "gpt-4o-mini",
+  response_format: { type: "json_object" },
+  messages: [
+    {
+      role: "system",
+      content: `
+You are a commerce product enrichment engine.
+A deterministic parser has already extracted the core product fields.
+Your job is ONLY to enrich missing or weakly-structured fields.
+
+Return ONLY valid JSON in this exact structure:
 {
-  "extracted_name": string | null,
-  "extracted_brand": string | null,
-  "extracted_category": string | null,
-  "extracted_price": number | null,
   "extracted_material": string | null,
-  "extracted_width_cm": number | null,
-  "extracted_depth_cm": number | null,
-  "extracted_height_cm": number | null,
   "extracted_color_options": string[],
   "extracted_size_label": string | null,
   "extracted_capacity_label": string | null,
-  "extracted_image_urls": string[],
   "extracted_source_variant_ids": string[],
   "extracted_option_summaries": string[],
-  "extracted_source_site": string | null,
-  "extracted_affiliate_url": string | null,
   "extracted_confidence": number | null,
   "extraction_notes": string | null
 }
 
 Rules:
-- Use null if unknown.
-- Width/depth/height must be in cm if possible.
+- Do NOT re-infer or overwrite product name, category, price, image, width, depth, or height.
+- Use null or [] if unknown.
 - extracted_confidence must be 0..100.
-- extracted_image_urls should contain likely product image URLs only.
 - extracted_color_options should contain color names only.
 - extracted_option_summaries should be short human-readable option summaries.
-- Do not invent data. If unsure, return null or [].
+- extracted_source_variant_ids should contain only source-side variant identifiers if clearly present.
+- extraction_notes should briefly explain uncertainty or useful enrichment context.
+- Do not invent data.
 `.trim(),
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            source_url: normalizedUrl,
-            source_site: sourceSite,
-            html: htmlSnippet,
-          }),
-        },
-      ],
-    });
+    },
+    {
+      role: "user",
+      content: JSON.stringify({
+        source_url: normalizedUrl,
+        source_site: sourceSite,
+        parser_result: parserResult,
+        html: htmlSnippet,
+      }),
+    },
+  ],
+});
 
-    const extracted: ExtractedAiResult = JSON.parse(
+    const enriched: EnrichedAiResult = JSON.parse(
       aiRes.choices[0].message.content || "{}"
-    );
-
+      );
 
     const finalCategory =
+      parserResult?.category ??
       normalizeCategory(
         [
-          extracted.extracted_category,
-          extracted.extracted_name,
+          parserResult?.product_name,
+          sourceSite,
         ]
           .filter(Boolean)
           .join(" ")
-      ) ?? null;
+      ) ??
+      null;
 
     const importPayload = {
-      source_site: sourceSite,
-      source_url: normalizedUrl,
-      raw_payload: {
-        full_html: html,
-        html_snippet: htmlSnippet,
-        html_length: htmlLength,
-        has_dimension_keyword: hasDimensionKeyword,
-        parser_version: null,
-      },
+  source_site: sourceSite,
+  source_url: normalizedUrl,
+  raw_payload: {
+    full_html: html,
+    html_snippet: htmlSnippet,
+    html_length: htmlLength,
+    has_dimension_keyword: hasDimensionKeyword,
+    parser_version: parserResult?.metadata_json?.parser_version ?? null,
+    parser_result: parserResult,
+  },
 
-      extracted_name: extracted.extracted_name ?? null,
-      extracted_brand: extracted.extracted_brand ?? null,
-      extracted_category: finalCategory,
-      extracted_price: parseNumberOrNull(extracted.extracted_price),
-      extracted_material: extracted.extracted_material ?? null,
-      extracted_width_cm: parseNumberOrNull(extracted.extracted_width_cm),
-      extracted_depth_cm: parseNumberOrNull(extracted.extracted_depth_cm),
-      extracted_height_cm: parseNumberOrNull(extracted.extracted_height_cm),
-      extraction_notes: extracted.extraction_notes ?? null,
+  extracted_name: parserResult?.product_name ?? null,
+  extracted_brand: parserResult?.brand ?? null,
+  extracted_category: finalCategory,
+  extracted_price: parseNumberOrNull(parserResult?.price),
+  extracted_material: enriched.extracted_material ?? null,
+  extracted_width_cm: parseNumberOrNull(parserResult?.width_cm),
+  extracted_depth_cm: parseNumberOrNull(parserResult?.depth_cm),
+  extracted_height_cm: parseNumberOrNull(parserResult?.height_cm),
+  extraction_notes: buildExtractionNotes({
+    parserResult,
+    aiResult: enriched,
+  }),
 
-      extracted_color_options: toStringArray(extracted.extracted_color_options),
-      extracted_size_label: extracted.extracted_size_label ?? null,
-      extracted_capacity_label: extracted.extracted_capacity_label ?? null,
-      extracted_image_urls: toStringArray(extracted.extracted_image_urls),
-      extracted_source_variant_ids: toStringArray(
-        extracted.extracted_source_variant_ids
-      ),
-      extracted_option_summaries: toStringArray(
-        extracted.extracted_option_summaries
-      ),
-      extracted_source_site: extracted.extracted_source_site ?? sourceSite,
-      extracted_affiliate_url:
-        extracted.extracted_affiliate_url ?? normalizedUrl,
-      extracted_confidence: parseNumberOrNull(extracted.extracted_confidence),
+  extracted_color_options: toStringArray(enriched.extracted_color_options),
+  extracted_size_label: enriched.extracted_size_label ?? null,
+  extracted_capacity_label: enriched.extracted_capacity_label ?? null,
+  extracted_image_urls: parserResult?.image_url ? [parserResult.image_url] : [],
+  extracted_source_variant_ids: toStringArray(
+    enriched.extracted_source_variant_ids
+  ),
+  extracted_option_summaries: toStringArray(
+    enriched.extracted_option_summaries
+  ),
+  extracted_source_site: sourceSite,
+  extracted_affiliate_url: normalizedUrl,
+  extracted_confidence: parseNumberOrNull(enriched.extracted_confidence),
 
-      status: "pending_review",
-    };
+  status: "pending_review",
+};
 
     const { data: importJob, error: importError } = await supabase
       .from("import_jobs")
