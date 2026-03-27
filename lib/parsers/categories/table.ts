@@ -208,10 +208,28 @@ function extractDimensions(sectionText: string | null): {
 
   const primaryDepthCandidates = collectDimensionCandidatesFromLines({
     text: normalizedSectionText,
-    labels: ["깊이", "세로", "길이", "depth"],
+    labels: ["깊이", "세로", "depth"],
   });
 
   let depth_cm = maxOrNull(primaryDepthCandidates);
+
+  const primaryLengthCandidates = collectDimensionCandidatesFromLines({
+    text: normalizedSectionText,
+    labels: ["길이", "length"],
+  });
+
+  let length_cm = maxOrNull(primaryLengthCandidates);
+
+  // 깊이가 없고 폭/길이만 있으면 table 규칙으로 보정
+  if (depth_cm == null && width_cm != null && length_cm != null) {
+    const larger = Math.max(width_cm, length_cm);
+    const smaller = Math.min(width_cm, length_cm);
+
+    width_cm = larger;
+    depth_cm = smaller;
+  } else if (width_cm == null && length_cm != null) {
+    width_cm = length_cm;
+  }
 
   let height_cm = extractHeightFromLines(normalizedSectionText);
 
@@ -226,6 +244,15 @@ function extractDimensions(sectionText: string | null): {
     width_cm = width_cm ?? compact.width_cm;
     depth_cm = depth_cm ?? compact.depth_cm;
     height_cm = height_cm ?? compact.height_cm;
+  }
+
+  // compact fallback 이후에도 한 번 더 보정
+  if (depth_cm == null && width_cm != null && length_cm != null) {
+    const larger = Math.max(width_cm, length_cm);
+    const smaller = Math.min(width_cm, length_cm);
+
+    width_cm = larger;
+    depth_cm = smaller;
   }
 
   if (diameter_cm != null) {

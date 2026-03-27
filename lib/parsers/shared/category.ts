@@ -98,18 +98,25 @@ if (hasAny(text, chairKeywords)) {
   return "chair";
 }
 
-  const tableKeywords = [
-    "table",
-    "dining table",
-    "coffee table",
-    "side table",
-    "테이블",
-    "식탁",
-    "커피테이블",
-    "커피 테이블",
-    "사이드테이블",
-    "사이드 테이블",
-  ];
+ const tableKeywords = [
+  "table",
+  "dining table",
+  "coffee table",
+  "side table",
+  "console table",
+  "round table",
+  "bedside table",
+  "테이블",
+  "식탁",
+  "원형 테이블",
+  "콘솔 테이블",
+  "커피테이블",
+  "커피 테이블",
+  "사이드테이블",
+  "사이드 테이블",
+  "침대협탁",
+  "협탁",
+];
 
   if (hasAny(text, tableKeywords)) {
     return "table";
