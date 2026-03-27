@@ -329,57 +329,69 @@ function normalizeImportResult(url: string, data: any): TestViewModel {
   const parserDebug = parsedNotes?.parser_debug ?? null;
 
   return {
-    name: job?.extracted_name ?? null,
-    brand: job?.extracted_brand ?? null,
-    category: job?.extracted_category ?? null,
-    price:
-      typeof job?.extracted_price === "number" &&
-      Number.isFinite(job.extracted_price)
-        ? job.extracted_price
-        : null,
-    material: job?.extracted_material ?? null,
+  name: job?.extracted_name ?? null,
+  brand: job?.extracted_brand ?? null,
+  category: job?.extracted_category ?? null,
+  price:
+    typeof job?.extracted_price === "number" &&
+    Number.isFinite(job.extracted_price)
+      ? job.extracted_price
+      : null,
+  material: job?.extracted_material ?? null,
 
-    width_cm:
-      typeof job?.extracted_width_cm === "number" &&
-      Number.isFinite(job.extracted_width_cm)
-        ? job.extracted_width_cm
-        : null,
-    depth_cm:
-      typeof job?.extracted_depth_cm === "number" &&
-      Number.isFinite(job.extracted_depth_cm)
-        ? job.extracted_depth_cm
-        : null,
-    height_cm:
-      typeof job?.extracted_height_cm === "number" &&
-      Number.isFinite(job.extracted_height_cm)
-        ? job.extracted_height_cm
-        : null,
+  width_cm:
+    typeof job?.extracted_width_cm === "number" &&
+    Number.isFinite(job.extracted_width_cm)
+      ? job.extracted_width_cm
+      : null,
+  depth_cm:
+    typeof job?.extracted_depth_cm === "number" &&
+    Number.isFinite(job.extracted_depth_cm)
+      ? job.extracted_depth_cm
+      : null,
+  height_cm:
+    typeof job?.extracted_height_cm === "number" &&
+    Number.isFinite(job.extracted_height_cm)
+      ? job.extracted_height_cm
+      : null,
 
-    image_urls: Array.isArray(job?.extracted_image_urls)
-      ? job!.extracted_image_urls!.filter(Boolean)
-      : [],
-    option_summaries: Array.isArray(job?.extracted_option_summaries)
-      ? job!.extracted_option_summaries!.filter(Boolean)
-      : [],
+  diameter_cm:
+    typeof parserDebug?.diameter_cm === "number" &&
+    Number.isFinite(parserDebug.diameter_cm)
+      ? parserDebug.diameter_cm
+      : null,
 
-    parser_version: parserDebug?.parser_version ?? "-",
-    raw_dimension_preview: parserDebug?.raw_dimension_text_preview ?? null,
-    notes:
-      typeof job?.extraction_notes === "string" && job.extraction_notes.trim()
-        ? job.extraction_notes
-        : null,
-    debug: parserDebug ? prettyJson(parserDebug) : null,
+  derived_width_from_diameter:
+    parserDebug?.derived_width_from_diameter ?? false,
 
-    source_site: job?.source_site ?? job?.extracted_source_site ?? null,
-    source_url: job?.source_url ?? url,
-    affiliate_url: job?.extracted_affiliate_url ?? null,
-    status: job?.status ?? null,
-    confidence:
-      typeof job?.extracted_confidence === "number" &&
-      Number.isFinite(job.extracted_confidence)
-        ? job.extracted_confidence
-        : null,
-  };
+  derived_depth_from_diameter:
+    parserDebug?.derived_depth_from_diameter ?? false,
+
+  image_urls: Array.isArray(job?.extracted_image_urls)
+    ? job!.extracted_image_urls!.filter(Boolean)
+    : [],
+  option_summaries: Array.isArray(job?.extracted_option_summaries)
+    ? job!.extracted_option_summaries!.filter(Boolean)
+    : [],
+
+  parser_version: parserDebug?.parser_version ?? "-",
+  raw_dimension_preview: parserDebug?.raw_dimension_text_preview ?? null,
+  notes:
+    typeof job?.extraction_notes === "string" && job.extraction_notes.trim()
+      ? job.extraction_notes
+      : null,
+  debug: parserDebug ? prettyJson(parserDebug) : null,
+
+  source_site: job?.source_site ?? job?.extracted_source_site ?? null,
+  source_url: job?.source_url ?? url,
+  affiliate_url: job?.extracted_affiliate_url ?? null,
+  status: job?.status ?? null,
+  confidence:
+    typeof job?.extracted_confidence === "number" &&
+    Number.isFinite(job.extracted_confidence)
+      ? job.extracted_confidence
+      : null,
+};
 }
 
 function getNotesPreview(view?: TestViewModel | null) {
