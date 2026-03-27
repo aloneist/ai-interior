@@ -44,32 +44,33 @@ function normalizeDimensionSectionForParsing(sectionText: string): string {
   let text = normalizeText(sectionText);
 
   const boundaryLabels = [
-    "치수",
-    "폭",
-    "가로",
-    "너비",
-    "깊이",
-    "세로",
-    "높이",
-    "총높이",
-    "전체 높이",
-    "등받이 높이",
-    "등받이H",
-    "시트 높이",
-    "좌면 높이",
-    "좌석 높이",
-    "시트 깊이",
-    "좌면 깊이",
-    "좌석 깊이",
-    "시트 폭",
-    "좌면 폭",
-    "좌석 폭",
-    "지름",
-    "diameter",
-    "ø",
-    "H(쿠션포함)",
-    "높이(쿠션포함)",
-  ];
+  "치수",
+  "폭",
+  "가로",
+  "너비",
+  "길이",
+  "깊이",
+  "세로",
+  "높이",
+  "총높이",
+  "전체 높이",
+  "등받이 높이",
+  "등받이H",
+  "시트 높이",
+  "좌면 높이",
+  "좌석 높이",
+  "시트 깊이",
+  "좌면 깊이",
+  "좌석 깊이",
+  "시트 폭",
+  "좌면 폭",
+  "좌석 폭",
+  "지름",
+  "diameter",
+  "ø",
+  "H(쿠션포함)",
+  "높이(쿠션포함)",
+];
 
   for (const label of boundaryLabels) {
     const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -259,13 +260,25 @@ function extractDimensions(sectionText: string | null): {
   let width_cm = maxOrNull(primaryWidthCandidates);
 
   const primaryDepthCandidates = collectDimensionCandidatesFromLines({
-    text: normalizedSectionText,
-    labels: ["깊이", "depth", "세로"],
-  });
+  text: normalizedSectionText,
+  labels: ["깊이", "depth", "세로"],
+});
 
-  let depth_cm = maxOrNull(primaryDepthCandidates);
+let depth_cm = maxOrNull(primaryDepthCandidates);
 
-  let height_cm = extractHeightFromLines(normalizedSectionText);
+const primaryLengthCandidates = collectDimensionCandidatesFromLines({
+  text: normalizedSectionText,
+  labels: ["길이", "length"],
+});
+
+let length_cm = maxOrNull(primaryLengthCandidates);
+
+// 벤치처럼 "폭 / 길이 / 높이" 표기를 쓰는 chair 계열 fallback
+if (depth_cm == null && length_cm != null) {
+  depth_cm = length_cm;
+}
+
+let height_cm = extractHeightFromLines(normalizedSectionText);  
 
   const diameter_cm = extractDiameterFromLines(normalizedSectionText);
 
@@ -273,14 +286,19 @@ function extractDimensions(sectionText: string | null): {
   let derived_depth_from_diameter = false;
 
   if (width_cm == null || depth_cm == null || height_cm == null) {
-    const compact = extractCompactDimensions(normalizedSectionText);
+  const compact = extractCompactDimensions(normalizedSectionText);
 
-    width_cm = width_cm ?? compact.width_cm;
-    depth_cm = depth_cm ?? compact.depth_cm;
-    height_cm = height_cm ?? compact.height_cm;
-  }
+  width_cm = width_cm ?? compact.width_cm;
+  depth_cm = depth_cm ?? compact.depth_cm;
+  height_cm = height_cm ?? compact.height_cm;
+}
 
-  if (diameter_cm != null) {
+// compact fallback 이후에도 벤치류 길이 표기를 depth로 보정
+if (depth_cm == null && length_cm != null) {
+  depth_cm = length_cm;
+}
+
+if (diameter_cm != null) {
     if (width_cm == null) {
       width_cm = diameter_cm;
       derived_width_from_diameter = true;

@@ -11,5 +11,7 @@ export function buildParserDebug(params: ParserDebugMeta) {
     parser_version: params.parser_version,
     category_hint: params.category_hint ?? null,
     category_hint_source_preview: params.category_hint_source_preview ?? null,
+    category_confidence: params.category_confidence ?? null,
+    category_scores: params.category_scores ?? null,
   };
 }

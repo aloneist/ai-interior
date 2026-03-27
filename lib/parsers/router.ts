@@ -22,6 +22,7 @@ export function compareIkeaParsers(raw: any) {
   const snapshot = extractIkeaSnapshot(raw);
 
   let v2: ParsedFurnitureProduct;
+
   if (snapshot.category_hint === "chair") {
     v2 = parseChairSnapshot(snapshot);
   } else if (snapshot.category_hint === "table") {
@@ -51,6 +52,10 @@ export function compareIkeaParsers(raw: any) {
         v2.metadata_json?.raw_dimension_text_preview ?? null,
       snapshot_dimension_text_preview:
         snapshot.metadata_json?.debug?.raw_dimension_text_preview ?? null,
+      category_confidence:
+        snapshot.metadata_json?.debug?.category_confidence ?? null,
+      category_scores:
+        snapshot.metadata_json?.debug?.category_scores ?? null,
     },
   };
 }

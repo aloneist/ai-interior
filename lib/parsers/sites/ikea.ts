@@ -1,11 +1,14 @@
 import * as cheerio from "cheerio";
-import { normalizeCategory } from "@/lib/parsers/shared/category";
+import {
+  normalizeCategory,
+  resolveCategory,
+} from "@/lib/parsers/shared/category";
 import { buildParserDebug } from "@/lib/parsers/shared/debug";
 import {
   decodeHtml,
   htmlToVisibleText,
   normalizeText,
-} from "@/lib/parsers/shared/text";
+} from "@/lib/parsers/shared/text"; 
 import type { RawProductSnapshot } from "@/lib/parsers/shared/snapshot";
 
 const STOP_SECTION_KEYWORDS = [
@@ -111,8 +114,6 @@ function extractDimensionSection(html: string): string | null {
     if (!isDimensionHeading) return;
 
     const parent = $(el).parent();
-    const parentText = normalizeText(parent.text());
-    if (parentText) candidates.push(parentText);
 
     let current = parent.next();
     const chunks: string[] = [t];
@@ -227,20 +228,45 @@ function resolveIkeaCategoryHint(params: {
     ].join(" ")
   ).toLowerCase();
 
+  const strongTableKeywords = [
+  "dining table",
+  "coffee table",
+  "side table",
+  "console table",
+  "round table",
+  "bedside table",
+  "end table",
+  "nesting table",
+  "drop-leaf table",
+  "bar table",
+  "bistro table",
+  "원형 테이블",
+  "콘솔 테이블",
+  "커피 테이블",
+  "커피테이블",
+  "사이드 테이블",
+  "사이드테이블",
+  "보조 테이블",
+  "협탁",
+  "침대협탁",
+];
+
   const strongSofaKeywords = [
-    "sofa",
-    "couch",
-    "loveseat",
-    "sectional",
-    "corner sofa",
-    "modular sofa",
-    "reclining sofa",
     "2-seat sofa",
     "3-seat sofa",
     "4-seat sofa",
     "2 seater sofa",
     "3 seater sofa",
     "4 seater sofa",
+    "corner sofa",
+    "modular sofa",
+    "reclining sofa",
+    "sofa bed",
+    "loveseat",
+    "sectional",
+    "chaise longue",
+    "sofa",
+    "couch",
     "소파",
     "카우치",
     "2인용 소파",
@@ -254,31 +280,74 @@ function resolveIkeaCategoryHint(params: {
   ];
 
   const strongChairKeywords = [
-    "office chair",
-    "desk chair",
-    "dining chair",
-    "gaming chair",
-    "lounge chair",
-    "armchair",
-    "stool",
-    "의자",
-    "식탁 의자",
-    "사무용 의자",
-    "책상 의자",
-    "라운지 의자",
-    "암체어",
-    "스툴",
-  ];
+  "office chair",
+  "desk chair",
+  "dining chair",
+  "gaming chair",
+  "lounge chair",
+  "armchair",
+  "stool",
+  "bench",
+  "의자",
+  "식탁 의자",
+  "사무용 의자",
+  "책상 의자",
+  "라운지 의자",
+  "암체어",
+  "스툴",
+  "벤치",
+  "수납벤치",
+];
+
+  if (includesAny(joined, strongTableKeywords)) {
+    return {
+      category: "table" as const,
+      confidence: "high" as const,
+      scores: [
+        {
+          category: "table" as const,
+          score: 100,
+          matched_keywords: strongTableKeywords.filter((kw) =>
+            joined.includes(kw)
+          ),
+        },
+      ],
+    };
+  }
 
   if (includesAny(joined, strongSofaKeywords)) {
-    return "sofa" as const;
+    return {
+      category: "sofa" as const,
+      confidence: "high" as const,
+      scores: [
+        {
+          category: "sofa" as const,
+          score: 100,
+          matched_keywords: strongSofaKeywords.filter((kw) =>
+            joined.includes(kw)
+          ),
+        },
+      ],
+    };
   }
 
   if (includesAny(joined, strongChairKeywords)) {
-    return "chair" as const;
+    return {
+      category: "chair" as const,
+      confidence: "high" as const,
+      scores: [
+        {
+          category: "chair" as const,
+          score: 100,
+          matched_keywords: strongChairKeywords.filter((kw) =>
+            joined.includes(kw)
+          ),
+        },
+      ],
+    };
   }
 
-  return normalizeCategory(joined);
+  return resolveCategory(joined);
 }
 
 export function extractIkeaSnapshot(raw: any): RawProductSnapshot {
@@ -296,12 +365,14 @@ export function extractIkeaSnapshot(raw: any): RawProductSnapshot {
 const description = extractDescription(html);
 const dimensionSectionText = extractDimensionSection(html);
 
-const categoryHint = resolveIkeaCategoryHint({
+const categoryResolution = resolveIkeaCategoryHint({
   title,
   description,
   dimensionSectionText,
   sourceUrl: raw?.url ?? raw?.source_url ?? null,
 });
+
+const categoryHint = categoryResolution.category;
 
   return {
     source_site: "ikea",
@@ -316,27 +387,29 @@ const categoryHint = resolveIkeaCategoryHint({
     metadata_json: {
   parser_version: "ikea-site-snapshot-v1",
   debug: buildParserDebug({
-    html_length: typeof html === "string" ? html.length : 0,
-    has_dimension_keyword:
-      typeof html === "string"
-        ? html.includes("치수") ||
-          html.includes("제품 크기") ||
-          html.toLowerCase().includes("dimensions")
-        : false,
-    width_cm: null,
-    depth_cm: null,
-    height_cm: null,
-    raw_dimension_text_preview: dimensionSectionText?.slice(0, 1000) ?? null,
-    category_hint: categoryHint,
-    category_hint_source_preview: normalizeText(
-      [
-        title ?? "",
-        description ?? "",
-        dimensionSectionText?.slice(0, 300) ?? "",
-      ].join(" ")
-    ).slice(0, 500),
-    parser_version: "ikea-site-snapshot-v1",
-  }),
+  html_length: typeof html === "string" ? html.length : 0,
+  has_dimension_keyword:
+    typeof html === "string"
+      ? html.includes("치수") ||
+        html.includes("제품 크기") ||
+        html.toLowerCase().includes("dimensions")
+      : false,
+  width_cm: null,
+  depth_cm: null,
+  height_cm: null,
+  raw_dimension_text_preview: dimensionSectionText?.slice(0, 1000) ?? null,
+  category_hint: categoryHint,
+  category_hint_source_preview: normalizeText(
+    [
+      title ?? "",
+      description ?? "",
+      dimensionSectionText?.slice(0, 300) ?? "",
+    ].join(" ")
+  ).slice(0, 500),
+  category_confidence: categoryResolution.confidence,
+  category_scores: categoryResolution.scores,
+  parser_version: "ikea-site-snapshot-v1",
+}),
 },
   };
 }

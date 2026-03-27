@@ -30,4 +30,10 @@ export type ParserDebugMeta = {
   parser_version: string;
   category_hint?: string | null;
   category_hint_source_preview?: string | null;
+  category_confidence?: "high" | "medium" | "low" | null;
+  category_scores?: Array<{
+    category: string;
+    score: number;
+    matched_keywords: string[];
+  }> | null;
 };
