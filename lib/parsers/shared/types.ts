@@ -28,4 +28,6 @@ export type ParserDebugMeta = {
   height_cm: number | null;
   raw_dimension_text_preview: string | null;
   parser_version: string;
+  category_hint?: string | null;
+  category_hint_source_preview?: string | null;
 };

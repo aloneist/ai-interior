@@ -9,5 +9,7 @@ export function buildParserDebug(params: ParserDebugMeta) {
     height_cm: params.height_cm,
     raw_dimension_text_preview: params.raw_dimension_text_preview,
     parser_version: params.parser_version,
+    category_hint: params.category_hint ?? null,
+    category_hint_source_preview: params.category_hint_source_preview ?? null,
   };
 }
