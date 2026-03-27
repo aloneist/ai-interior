@@ -298,6 +298,8 @@ function extractDimensions(sectionText: string | null): {
       width_cm: null,
       depth_cm: null,
       height_cm: null,
+      overall_height_cm: null,
+      backrest_height_cm: null,
       raw_dimension_text: null,
     };
   }
