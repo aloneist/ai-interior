@@ -69,6 +69,139 @@ function labelRoom(v: {
   }
 }
 
+type ScoredFurniture = {
+  id: string
+  name: string
+  brand: string | null
+  category: string | null
+  price: number | null
+  image_url: string | null
+  product_key?: string | null
+  created_at?: string | null
+  recommendation_score: number
+  reason_short?: string
+}
+
+type RecommendationGroup = {
+  id: "balanced" | "budget" | "mood"
+  title: string
+  concept_tag: string
+  total_price_text: string
+  summary_text: string
+  products: ScoredFurniture[]
+}
+
+function formatPriceText(price: number | null) {
+  if (!price || !Number.isFinite(price)) return "-"
+  return `${price.toLocaleString()}원`
+}
+
+function formatTotalPriceText(items: ScoredFurniture[]) {
+  const total = items.reduce((sum, item) => sum + (item.price ?? 0), 0)
+  if (!total) return "가격 정보 확인 필요"
+  return `약 ${total.toLocaleString()}원`
+}
+
+function pickTopByScore(items: ScoredFurniture[], limit: number) {
+  return [...items]
+    .sort((a, b) => b.recommendation_score - a.recommendation_score)
+    .slice(0, limit)
+}
+
+function pickBudgetItems(items: ScoredFurniture[], limit: number) {
+  return [...items]
+    .sort((a, b) => {
+      const aPrice = a.price ?? Number.MAX_SAFE_INTEGER
+      const bPrice = b.price ?? Number.MAX_SAFE_INTEGER
+
+      if (aPrice !== bPrice) return aPrice - bPrice
+      return b.recommendation_score - a.recommendation_score
+    })
+    .slice(0, limit)
+}
+
+function pickMoodItems(items: ScoredFurniture[], limit: number) {
+  return [...items]
+    .sort((a, b) => {
+      const aPrice = a.price ?? 0
+      const bPrice = b.price ?? 0
+
+      if (aPrice !== bPrice) return bPrice - aPrice
+      return b.recommendation_score - a.recommendation_score
+    })
+    .slice(0, limit)
+}
+
+function uniqueById(items: ScoredFurniture[]) {
+  const seen = new Set<string>()
+  const result: ScoredFurniture[] = []
+
+  for (const item of items) {
+    if (seen.has(item.id)) continue
+    seen.add(item.id)
+    result.push(item)
+  }
+
+  return result
+}
+
+function buildSummaryText(params: {
+  mode: "balanced" | "budget" | "mood"
+  roomLabels: ReturnType<typeof labelRoom>
+}) {
+  const { mode, roomLabels } = params
+
+  if (mode === "balanced") {
+    return `${roomLabels.brightness}, ${roomLabels.minimalism} 공간에 무난하게 어울리는 조합이에요.`
+  }
+
+  if (mode === "budget") {
+    return `가격 부담을 낮추면서도 ${roomLabels.temperature} 톤과 어색하지 않게 맞춘 조합이에요.`
+  }
+
+  return `${roomLabels.colorfulness}, ${roomLabels.contrast} 흐름을 살려 분위기 변화를 더 주는 조합이에요.`
+}
+
+function buildRecommendationGroups(params: {
+  items: ScoredFurniture[]
+  roomLabels: ReturnType<typeof labelRoom>
+}) {
+  const { items, roomLabels } = params
+
+  const balanced = uniqueById(pickTopByScore(items, 3))
+  const budget = uniqueById(pickBudgetItems(items, 3))
+  const mood = uniqueById(pickMoodItems(items, 3))
+
+  const groups: RecommendationGroup[] = [
+    {
+      id: "balanced",
+      title: "추천안 A | 균형형",
+      concept_tag: "무난한 조합",
+      total_price_text: formatTotalPriceText(balanced),
+      summary_text: buildSummaryText({ mode: "balanced", roomLabels }),
+      products: balanced,
+    },
+    {
+      id: "budget",
+      title: "추천안 B | 예산 절약형",
+      concept_tag: "가성비 중심",
+      total_price_text: formatTotalPriceText(budget),
+      summary_text: buildSummaryText({ mode: "budget", roomLabels }),
+      products: budget,
+    },
+    {
+      id: "mood",
+      title: "추천안 C | 분위기 강조형",
+      concept_tag: "분위기 변화",
+      total_price_text: formatTotalPriceText(mood),
+      summary_text: buildSummaryText({ mode: "mood", roomLabels }),
+      products: mood,
+    },
+  ]
+
+  return groups
+}
+
 export async function POST(req: Request) {
   try {
     const { imageUrl } = await req.json()
@@ -166,6 +299,15 @@ Rules:
     const trust_score = calcTrustScore({ brightness, density, contrast, colorfulness })
     const trust_note = trustNote(trust_score)
 
+    const roomLabels = labelRoom({
+  brightness,
+  temperature,
+  density,
+  minimalism,
+  contrast,
+  colorfulness,
+})
+
     const weights = {
       brightness: 0.2,
       temperature: 0.2,
@@ -225,32 +367,24 @@ Rules:
     }
 
     const top3 = deduped.slice(0, 3)
+const recommendationGroups = buildRecommendationGroups({
+  items: deduped as ScoredFurniture[],
+  roomLabels,
+})
 
-        // ✅ 추천 노출 로그 저장 (Top3)
-    await supabase.from("recommendations").insert(
-      top3.map((x: any) => ({
-        request_id,
-        event_source: "web",
-        space_id: spaceRow.id,
-        furniture_id: x.id,
-        compatibility_score: x.recommendation_score,
-        clicked: false,
-        saved: false,
-        purchased: false,
-      }))
-    )
-
-    // -----------------------
-    // 4) 추천 이유 1줄 생성 (Top3만, OpenAI 1회)
-    // -----------------------
-    const roomLabels = labelRoom({
-      brightness,
-      temperature,
-      density,
-      minimalism,
-      contrast,
-      colorfulness,
-    })
+// ✅ 추천 노출 로그 저장 (Top3)
+await supabase.from("recommendations").insert(
+  top3.map((x: any) => ({
+    request_id,
+    event_source: "web",
+    space_id: spaceRow.id,
+    furniture_id: x.id,
+    compatibility_score: x.recommendation_score,
+    clicked: false,
+    saved: false,
+    purchased: false,
+  }))
+)
 
     const explainRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -317,15 +451,32 @@ Return format:
     // -----------------------
     // 5) 최종 응답
     // -----------------------
-    return NextResponse.json({
-      success: true,
-      request_id,
-      space: spaceRow,
-      analysis: spaceNormalized,
-      trust_score,
-      trust_note,
-      recommendations: top3WithReasons,
-    })
+    const groupedRecommendations = recommendationGroups.map((group) => ({
+  ...group,
+  products: group.products.map((product) => {
+    const matched = top3WithReasons.find((item: any) => item.id === product.id)
+
+    return {
+      ...product,
+      reason_short:
+        matched?.reason_short ??
+        product.reason_short ??
+        "공간 톤과 대비에 무난히 맞는 선택이에요.",
+      price_text: formatPriceText(product.price ?? null),
+    }
+  }),
+}))
+
+return NextResponse.json({
+  success: true,
+  request_id,
+  space: spaceRow,
+  analysis: spaceNormalized,
+  trust_score,
+  trust_note,
+  recommendations: top3WithReasons,
+  grouped_recommendations: groupedRecommendations,
+})
   } catch (err: any) {
     console.error("MVP API ERROR:", err)
     return NextResponse.json(
