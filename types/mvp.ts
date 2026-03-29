@@ -1,0 +1,77 @@
+export type Step = "intro" | "input" | "preference" | "loading" | "result"
+
+export type RoomType = "living" | "bedroom" | "workspace" | "dining"
+
+export type BudgetLevel = "low" | "medium" | "high"
+
+export type FurnitureType = "sofa" | "chair" | "table"
+
+export type StyleTag =
+  | "modern"
+  | "minimal"
+  | "warm-wood"
+  | "bright"
+  | "calm"
+  | "hotel"
+
+export type BaseRecommendationProduct = {
+  id: string
+  name: string
+  brand: string | null
+  category: string | null
+  price: number | null
+  image_url: string | null
+  recommendation_score: number
+  reason_short: string
+  external_url?: string
+}
+
+export type RecommendationProduct = BaseRecommendationProduct & {
+  request_id: string
+}
+
+export type GroupedRecommendationProduct = BaseRecommendationProduct & {
+  price_text?: string
+}
+
+export type GroupedRecommendation = {
+  id: "balanced" | "budget" | "mood"
+  title: string
+  concept_tag: string
+  total_price_text: string
+  summary_text: string
+  products: GroupedRecommendationProduct[]
+}
+
+export type MVPResponse = {
+  success: boolean
+  request_id?: string
+  analysis: {
+    image_url: string
+    brightness_score: number
+    color_temperature_score: number
+    spatial_density_score: number
+    minimalism_score: number
+    contrast_score: number
+    colorfulness_score: number
+    dominant_color_hex: string
+  }
+  trust_score: number
+  trust_note: string | null
+  recommendations: RecommendationProduct[]
+  grouped_recommendations?: GroupedRecommendation[]
+  error?: string
+  message?: string
+}
+
+export type UploadImageResponse = {
+  success: boolean
+  imageUrl?: string
+  publicId?: string
+  error?: string
+  message?: string
+}
+
+export type ProductLike =
+  | RecommendationProduct
+  | GroupedRecommendationProduct

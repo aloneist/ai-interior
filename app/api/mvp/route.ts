@@ -80,6 +80,7 @@ type ScoredFurniture = {
   created_at?: string | null
   recommendation_score: number
   reason_short?: string
+  external_url?: string
 }
 
 type RecommendationGroup = {
@@ -200,6 +201,26 @@ function buildRecommendationGroups(params: {
   ]
 
   return groups
+}
+
+function buildExternalProductUrl(item: {
+  product_key?: string | null
+  brand?: string | null
+  name?: string | null
+}) {
+  const rawKey = item.product_key?.trim() ?? ""
+
+  if (/^https?:\/\//i.test(rawKey)) {
+    return rawKey
+  }
+
+  const query = [item.brand, item.name].filter(Boolean).join(" ").trim()
+
+  if (!query) return null
+
+  return `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(
+    query
+  )}`
 }
 
 export async function POST(req: Request) {
@@ -348,6 +369,7 @@ Rules:
       return {
         ...item.furniture,
         recommendation_score: Math.round(score),
+        external_url: buildExternalProductUrl(item.furniture),
       }
     })
 
@@ -445,6 +467,7 @@ Return format:
 
     const top3WithReasons = top3.map((x: any) => ({
       ...x,
+      external_url: x.external_url ?? buildExternalProductUrl(x),
       reason_short: reasonMap.get(x.product_key) ?? "공간 톤과 대비에 무난히 맞는 선택이에요.",
     }))
 
@@ -457,13 +480,17 @@ Return format:
     const matched = top3WithReasons.find((item: any) => item.id === product.id)
 
     return {
-      ...product,
-      reason_short:
-        matched?.reason_short ??
-        product.reason_short ??
-        "공간 톤과 대비에 무난히 맞는 선택이에요.",
-      price_text: formatPriceText(product.price ?? null),
-    }
+  ...product,
+  external_url:
+    matched?.external_url ??
+    product.external_url ??
+    buildExternalProductUrl(product),
+  reason_short:
+    matched?.reason_short ??
+    product.reason_short ??
+    "공간 톤과 대비에 무난히 맞는 선택이에요.",
+  price_text: formatPriceText(product.price ?? null),
+}
   }),
 }))
 
