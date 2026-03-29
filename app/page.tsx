@@ -11,6 +11,12 @@ import ProductDetailModal from "@/components/mvp/ProductDetailModal"
 import RecommendationGroupSection from "@/components/mvp/RecommendationGroupSection"
 import RecommendationProductCard from "@/components/mvp/RecommendationProductCard"
 import useMvpFlow from "@/hooks/useMvpFlow"
+import type {
+  BudgetLevel,
+  FurnitureType,
+  RoomType,
+  StyleTag,
+} from "@/types/mvp"
 
 const ROOM_OPTIONS: Array<{ value: RoomType; label: string }> = [
   { value: "living", label: "거실" },
@@ -42,124 +48,57 @@ const FURNITURE_OPTIONS: Array<{ value: FurnitureType; label: string }> = [
 
 export default function Home() {
   const {
-  step,
-  setStep,
+    step,
+    setStep,
 
-  imageUrl,
-  setImageUrl,
-  localPreviewUrl,
-  roomType,
-  setRoomType,
+    imageUrl,
+    setImageUrl,
+    localPreviewUrl,
+    roomType,
+    setRoomType,
 
-  styles,
-  budget,
-  setBudget,
-  furniture,
-  requestText,
-  setRequestText,
+    styles,
+    budget,
+    setBudget,
+    furniture,
+    requestText,
+    setRequestText,
 
-  loading,
-  data,
-  error,
+    loading,
+    data,
+    error,
 
-  selectedGroupId,
-  setSelectedGroupId,
-  selectedProductId,
-  setSelectedProductId,
+    selectedGroupId,
+    setSelectedGroupId,
+    selectedProductId,
+    setSelectedProductId,
 
-  savedProductIds,
-  comparedProductIds,
+    savedProductIds,
+    comparedProductIds,
 
-  selectedProduct,
-  comparedProducts,
-  comparisonSummary,
-  savedProducts,
+    selectedProduct,
+    comparedProducts,
+    comparisonSummary,
+    savedProducts,
 
-  canGoInputNext,
-  canGoPreferenceNext,
-  headerTitle,
-  headerSubtitle,
+    canGoInputNext,
+    canGoPreferenceNext,
+    headerTitle,
+    headerSubtitle,
 
-  handleFileChange,
-  resetFileStateForUrlInput,
-  toggleStyle,
-  toggleFurniture,
-  toggleSavedProduct,
-  toggleComparedProduct,
-  openExternalProductLink,
-  runMVP,
-  resetResultAndGoPreference,
-} = useMvpFlow({
-  roomOptions: ROOM_OPTIONS,
-  styleOptions: STYLE_OPTIONS,
-})
-
-
-  const canGoInputNext =
-  Boolean(roomType) && (Boolean(selectedFile) || Boolean(imageUrl.trim()))
-  const canGoPreferenceNext =
-    Boolean(budget) && styles.length > 0 && furniture.length > 0
-
-
-
-
-  try {
-    let finalImageUrl = imageUrl.trim()
-
-    if (selectedFile) {
-      if (!uploadedImageUrl) {
-        const formData = new FormData()
-        formData.append("file", selectedFile)
-
-        const uploadRes = await fetch("/api/upload-image", {
-          method: "POST",
-          body: formData,
-        })
-
-        const uploadJson = (await uploadRes.json()) as UploadImageResponse
-
-        if (!uploadRes.ok || !uploadJson.success || !uploadJson.imageUrl) {
-          setError(uploadJson.message || uploadJson.error || "이미지 업로드 실패")
-          setStep("input")
-          return
-        }
-
-        finalImageUrl = uploadJson.imageUrl
-        setUploadedImageUrl(uploadJson.imageUrl)
-      } else {
-        finalImageUrl = uploadedImageUrl
-      }
-    }
-
-    if (!finalImageUrl) {
-      setError("이미지를 업로드하거나 URL을 입력해주세요")
-      setStep("input")
-      return
-    }
-
-    const res = await fetch("/api/mvp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageUrl: finalImageUrl }),
-    })
-
-    const json = (await res.json()) as MVPResponse
-
-    if (!res.ok || !json.success) {
-      setError(json.message || json.error || "요청 실패")
-      setStep("preference")
-      return
-    }
-
-    setData(json)
-    setStep("result")
-  } catch (e: any) {
-    setError(e?.message || "에러 발생")
-    setStep("preference")
-  } finally {
-    setLoading(false)
-  }
-}
+    handleFileChange,
+    resetFileStateForUrlInput,
+    toggleStyle,
+    toggleFurniture,
+    toggleSavedProduct,
+    toggleComparedProduct,
+    openExternalProductLink,
+    runMVP,
+    resetResultAndGoPreference,
+  } = useMvpFlow({
+    roomOptions: ROOM_OPTIONS,
+    styleOptions: STYLE_OPTIONS,
+  })
 
   return (
     <main className="min-h-screen bg-white text-black">
@@ -282,64 +221,66 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <ResultCompareBar
-  comparedProducts={comparedProducts as any[]}
-  onOpenProduct={setSelectedProductId}
-  onRemoveCompared={toggleComparedProduct}
-/>
 
-<ResultComparisonSummary comparisonSummary={comparisonSummary as any} />
+            <ResultCompareBar
+              comparedProducts={comparedProducts}
+              onOpenProduct={setSelectedProductId}
+              onRemoveCompared={toggleComparedProduct}
+            />
+
+            <ResultComparisonSummary comparisonSummary={comparisonSummary} />
 
             <div className="mt-8">
-  <div className="flex flex-wrap items-end justify-between gap-3">
-  <div>
-    <div className="text-sm text-gray-500">추천 조합</div>
-    <h3 className="text-2xl font-bold">내 공간에 맞춘 추천안</h3>
-  </div>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <div className="text-sm text-gray-500">추천 조합</div>
+                  <h3 className="text-2xl font-bold">내 공간에 맞춘 추천안</h3>
+                </div>
 
-  <div className="flex gap-2 text-sm">
-    <div className="rounded-full border px-3 py-1">
-      저장 {savedProductIds.length}
-    </div>
-    <div className="rounded-full border px-3 py-1">
-      비교 {comparedProductIds.length}/2
-    </div>
-  </div>
-</div>
+                <div className="flex gap-2 text-sm">
+                  <div className="rounded-full border px-3 py-1">
+                    저장 {savedProductIds.length}
+                  </div>
+                  <div className="rounded-full border px-3 py-1">
+                    비교 {comparedProductIds.length}/2
+                  </div>
+                </div>
+              </div>
 
-  {data.grouped_recommendations && data.grouped_recommendations.length > 0 ? (
-  <RecommendationGroupSection
-    groups={data.grouped_recommendations as any[]}
-    selectedGroupId={selectedGroupId}
-    setSelectedGroupId={setSelectedGroupId}
-    savedProductIds={savedProductIds}
-    comparedProductIds={comparedProductIds}
-    onToggleSaved={toggleSavedProduct}
-    onToggleCompared={toggleComparedProduct}
-    onOpenDetail={setSelectedProductId}
-  />
-) : (
-    <div className="mt-4 grid gap-4 md:grid-cols-3">
-  {data.recommendations.map((r) => (
-    <RecommendationProductCard
-      key={r.id}
-      product={r}
-      savedProductIds={savedProductIds}
-      comparedProductIds={comparedProductIds}
-      onToggleSaved={toggleSavedProduct}
-      onToggleCompared={toggleComparedProduct}
-      onOpenDetail={setSelectedProductId}
-    />
-  ))}
-</div>
-  )}
-</div>
-<SavedProductsSection
-  savedProducts={savedProducts as any[]}
-  onOpenProduct={setSelectedProductId}
-  onOpenExternal={openExternalProductLink}
-  onToggleSaved={toggleSavedProduct}
-/>
+              {data.grouped_recommendations && data.grouped_recommendations.length > 0 ? (
+                <RecommendationGroupSection
+                  groups={data.grouped_recommendations}
+                  selectedGroupId={selectedGroupId}
+                  setSelectedGroupId={setSelectedGroupId}
+                  savedProductIds={savedProductIds}
+                  comparedProductIds={comparedProductIds}
+                  onToggleSaved={toggleSavedProduct}
+                  onToggleCompared={toggleComparedProduct}
+                  onOpenDetail={setSelectedProductId}
+                />
+              ) : (
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                  {data.recommendations.map((r) => (
+                    <RecommendationProductCard
+                      key={r.id}
+                      product={r}
+                      savedProductIds={savedProductIds}
+                      comparedProductIds={comparedProductIds}
+                      onToggleSaved={toggleSavedProduct}
+                      onToggleCompared={toggleComparedProduct}
+                      onOpenDetail={setSelectedProductId}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <SavedProductsSection
+              savedProducts={savedProducts}
+              onOpenProduct={setSelectedProductId}
+              onOpenExternal={openExternalProductLink}
+              onToggleSaved={toggleSavedProduct}
+            />
 
             <div className="mt-8">
               <button
@@ -354,14 +295,14 @@ export default function Home() {
       </div>
 
       <ProductDetailModal
-  product={selectedProduct as any}
-  savedProductIds={savedProductIds}
-  comparedProductIds={comparedProductIds}
-  onClose={() => setSelectedProductId(null)}
-  onToggleSaved={toggleSavedProduct}
-  onToggleCompared={toggleComparedProduct}
-  onOpenExternal={openExternalProductLink}
-/>
+        product={selectedProduct}
+        savedProductIds={savedProductIds}
+        comparedProductIds={comparedProductIds}
+        onClose={() => setSelectedProductId(null)}
+        onToggleSaved={toggleSavedProduct}
+        onToggleCompared={toggleComparedProduct}
+        onOpenExternal={openExternalProductLink}
+      />
     </main>
   )
 }
