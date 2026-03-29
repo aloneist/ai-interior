@@ -1,4 +1,9 @@
-import { toBudgetLabel, toFurnitureLabel, toRoomTypeLabel, toStyleLabel } from "@/lib/mvp/labels"
+import {
+  toBudgetLabel,
+  toFurnitureLabel,
+  toRoomTypeLabel,
+  toStyleLabel,
+} from "@/lib/mvp/labels"
 import {
   buildPreferredFurniturePool,
   buildUserAdjustedPool,
@@ -66,9 +71,13 @@ export type RecommendationGroup = {
   products: Array<GroupableFurniture & { adjusted_score?: number }>
 }
 
-function formatTotalPriceText(items: Array<GroupableFurniture & { adjusted_score?: number }>) {
+function formatTotalPriceText(
+  items: Array<GroupableFurniture & { adjusted_score?: number }>
+) {
   const total = items.reduce((sum, item) => sum + (item.price ?? 0), 0)
+
   if (!total) return "가격 정보 확인 필요"
+
   return `약 ${total.toLocaleString()}원`
 }
 
@@ -89,6 +98,7 @@ function sortGroupItems(
       const bPrice = b.price ?? Number.MAX_SAFE_INTEGER
 
       if (aPrice !== bPrice) return aPrice - bPrice
+
       return bAdjusted - aAdjusted
     }
 
@@ -96,6 +106,7 @@ function sortGroupItems(
     const bPrice = b.price ?? 0
 
     if (bAdjusted !== aAdjusted) return bAdjusted - aAdjusted
+
     return bPrice - aPrice
   })
 
@@ -147,7 +158,6 @@ function buildSummaryText(params: {
     styleLabels.length > 0 ? `${styleLabels.join(", ")} 취향을 반영해 ` : ""
 
   const roomTypeText = roomTypeLabel ? `${roomTypeLabel} 기준으로 ` : ""
-
   const budgetText = budgetLabel ? `${budgetLabel} 안에서 ` : ""
 
   const furnitureText =
@@ -157,9 +167,9 @@ function buildSummaryText(params: {
     ? `"${userInput.requestText.trim()}" 요청을 고려해 `
     : ""
 
-  return `${roomTypeText}${styleText}${budgetText}${furnitureText}${requestSnippet}${GROUP_COPY[mode].summarySuffix(
-    roomLabels
-  )}`
+  return `${roomTypeText}${styleText}${budgetText}${furnitureText}${requestSnippet}${GROUP_COPY[
+    mode
+  ].summarySuffix(roomLabels)}`
 }
 
 function buildConceptTag(mode: GroupMode, userInput?: UserPreferenceInput) {
@@ -174,14 +184,11 @@ function buildConceptTag(mode: GroupMode, userInput?: UserPreferenceInput) {
   if (mode === "budget") {
     if (userInput?.budget === "low") return "낮은 예산 우선"
     if (userInput?.budget === "medium") return "예산 균형"
+
     return GROUP_CONFIG.budget.fallbackTag
   }
 
-  if (
-    mode === "mood" &&
-    userInput?.styles &&
-    userInput.styles.length > 0
-  ) {
+  if (mode === "mood" && userInput?.styles && userInput.styles.length > 0) {
     return `${userInput.styles.slice(0, 2).map(toStyleLabel).join(", ")} 반영`
   }
 
@@ -200,52 +207,53 @@ export function buildRecommendationGroups(params: {
   const groupLimit = getGroupProductLimit(userInput)
 
   const balanced = uniqueById(
-  pickGroupItems(preferredPool, GROUP_CONFIG.balanced.sortMode, groupLimit)
-)
-const budget = uniqueById(
-  pickGroupItems(preferredPool, GROUP_CONFIG.budget.sortMode, groupLimit)
-)
-const mood = uniqueById(
-  pickGroupItems(preferredPool, GROUP_CONFIG.mood.sortMode, groupLimit)
-)
+    pickGroupItems(preferredPool, GROUP_CONFIG.balanced.sortMode, groupLimit)
+  )
+  const budget = uniqueById(
+    pickGroupItems(preferredPool, GROUP_CONFIG.budget.sortMode, groupLimit)
+  )
+  const mood = uniqueById(
+    pickGroupItems(preferredPool, GROUP_CONFIG.mood.sortMode, groupLimit)
+  )
 
-const groups: RecommendationGroup[] = [
-  {
-    id: GROUP_CONFIG.balanced.id,
-    title: GROUP_CONFIG.balanced.title,
-    concept_tag: buildConceptTag(GROUP_CONFIG.balanced.sortMode, userInput),
-    total_price_text: formatTotalPriceText(balanced),
-    summary_text: buildSummaryText({
-  mode: GROUP_CONFIG.balanced.sortMode,
-  roomLabels,
-  userInput,
-}),
-    products: balanced,
-  },
-  {
-    id: GROUP_CONFIG.budget.id,
-    title: GROUP_CONFIG.budget.title,
-    concept_tag: buildConceptTag(GROUP_CONFIG.budget.sortMode, userInput),
-    total_price_text: formatTotalPriceText(budget),
-    summary_text: buildSummaryText({
-  mode: GROUP_CONFIG.budget.sortMode,
-  roomLabels,
-  userInput,
-}),    products: budget,
-  },
-  {
-    id: GROUP_CONFIG.mood.id,
-    title: GROUP_CONFIG.mood.title,
-    concept_tag: buildConceptTag(GROUP_CONFIG.mood.sortMode, userInput),
-    total_price_text: formatTotalPriceText(mood),
-    summary_text: buildSummaryText({
-  mode: GROUP_CONFIG.mood.sortMode,
-  roomLabels,
-  userInput,
-}),
-    products: mood,
-  },
-]
+  const groups: RecommendationGroup[] = [
+    {
+      id: GROUP_CONFIG.balanced.id,
+      title: GROUP_CONFIG.balanced.title,
+      concept_tag: buildConceptTag(GROUP_CONFIG.balanced.sortMode, userInput),
+      total_price_text: formatTotalPriceText(balanced),
+      summary_text: buildSummaryText({
+        mode: GROUP_CONFIG.balanced.sortMode,
+        roomLabels,
+        userInput,
+      }),
+      products: balanced,
+    },
+    {
+      id: GROUP_CONFIG.budget.id,
+      title: GROUP_CONFIG.budget.title,
+      concept_tag: buildConceptTag(GROUP_CONFIG.budget.sortMode, userInput),
+      total_price_text: formatTotalPriceText(budget),
+      summary_text: buildSummaryText({
+        mode: GROUP_CONFIG.budget.sortMode,
+        roomLabels,
+        userInput,
+      }),
+      products: budget,
+    },
+    {
+      id: GROUP_CONFIG.mood.id,
+      title: GROUP_CONFIG.mood.title,
+      concept_tag: buildConceptTag(GROUP_CONFIG.mood.sortMode, userInput),
+      total_price_text: formatTotalPriceText(mood),
+      summary_text: buildSummaryText({
+        mode: GROUP_CONFIG.mood.sortMode,
+        roomLabels,
+        userInput,
+      }),
+      products: mood,
+    },
+  ]
 
   return groups
 }

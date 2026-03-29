@@ -1,11 +1,4 @@
-type RoomLabels = {
-  brightness: string
-  temperature: string
-  density: string
-  minimalism: string
-  contrast: string
-  colorfulness: string
-}
+import type { RoomLabels } from "@/lib/mvp/room-analysis"
 
 type ExplainItem = {
   product_key: string | null | undefined

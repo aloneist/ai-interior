@@ -1,4 +1,8 @@
-import { includesAnyKeyword, normalizeText, parseRequestSignals } from "@/lib/mvp/request-signals"
+import {
+  includesAnyKeyword,
+  normalizeText,
+  parseRequestSignals,
+} from "@/lib/mvp/request-signals"
 
 const ROOM_TYPE_CATEGORY_WEIGHTS = {
   living: {
@@ -86,7 +90,9 @@ export function scoreFurnitureByRoomType(
   roomType?: string | null
 ) {
   const category = normalizeText(item.category)
-  const room = normalizeText(roomType) as keyof typeof ROOM_TYPE_CATEGORY_WEIGHTS | ""
+  const room = normalizeText(
+    roomType
+  ) as keyof typeof ROOM_TYPE_CATEGORY_WEIGHTS | ""
 
   if (!room || !(room in ROOM_TYPE_CATEGORY_WEIGHTS)) return 0
 
@@ -116,76 +122,83 @@ export function scoreFurnitureByUserInput(
   const budget = normalizeText(userInput?.budget)
 
   if (selectedFurniture.length > 0) {
-  if (selectedFurniture.includes(category)) {
-    bonus += FURNITURE_MATCH_BONUSES.matched
-  } else {
-    bonus += FURNITURE_MATCH_BONUSES.unmatched
+    if (selectedFurniture.includes(category)) {
+      bonus += FURNITURE_MATCH_BONUSES.matched
+    } else {
+      bonus += FURNITURE_MATCH_BONUSES.unmatched
+    }
   }
-}
 
   if (budget === "low") {
-  const rule = BUDGET_RULES.low
-  if ((item.price ?? 0) > 0 && (item.price ?? 0) <= rule.cheapMax) {
-    bonus += rule.cheapBonus
-  }
-  if ((item.price ?? 0) > rule.expensiveMin) {
-    bonus += rule.expensivePenalty
-  }
-}
+    const rule = BUDGET_RULES.low
 
-if (budget === "medium") {
-  const rule = BUDGET_RULES.medium
-  if ((item.price ?? 0) >= rule.min && (item.price ?? 0) <= rule.max) {
-    bonus += rule.bonus
-  }
-}
+    if ((item.price ?? 0) > 0 && (item.price ?? 0) <= rule.cheapMax) {
+      bonus += rule.cheapBonus
+    }
 
-if (budget === "high") {
-  const rule = BUDGET_RULES.high
-  if ((item.price ?? 0) >= rule.premiumMin) {
-    bonus += rule.bonus
+    if ((item.price ?? 0) > rule.expensiveMin) {
+      bonus += rule.expensivePenalty
+    }
   }
-}
+
+  if (budget === "medium") {
+    const rule = BUDGET_RULES.medium
+
+    if ((item.price ?? 0) >= rule.min && (item.price ?? 0) <= rule.max) {
+      bonus += rule.bonus
+    }
+  }
+
+  if (budget === "high") {
+    const rule = BUDGET_RULES.high
+
+    if ((item.price ?? 0) >= rule.premiumMin) {
+      bonus += rule.bonus
+    }
+  }
 
   if (requestText) {
-  if (requestSignals.wantsAiry && includesAnyKeyword(category, ["chair", "table"])) {
-    bonus += REQUEST_SIGNAL_BONUSES.airyFurnitureBonus
-  }
+    if (
+      requestSignals.wantsAiry &&
+      includesAnyKeyword(category, ["chair", "table"])
+    ) {
+      bonus += REQUEST_SIGNAL_BONUSES.airyFurnitureBonus
+    }
 
-  if (
-    requestSignals.wantsMinimal &&
-    includesAnyKeyword(selectedStyles.join(" "), ["minimal", "modern"])
-  ) {
-    bonus += REQUEST_SIGNAL_BONUSES.minimalStyleBonus
-  }
+    if (
+      requestSignals.wantsMinimal &&
+      includesAnyKeyword(selectedStyles.join(" "), ["minimal", "modern"])
+    ) {
+      bonus += REQUEST_SIGNAL_BONUSES.minimalStyleBonus
+    }
 
-  if (requestSignals.wantsBright && item.recommendation_score >= 70) {
-    bonus += REQUEST_SIGNAL_BONUSES.brightBonus
-  }
+    if (requestSignals.wantsBright && item.recommendation_score >= 70) {
+      bonus += REQUEST_SIGNAL_BONUSES.brightBonus
+    }
 
-  if (requestSignals.wantsCalm && item.recommendation_score >= 72) {
-    bonus += REQUEST_SIGNAL_BONUSES.calmBonus
-  }
+    if (requestSignals.wantsCalm && item.recommendation_score >= 72) {
+      bonus += REQUEST_SIGNAL_BONUSES.calmBonus
+    }
 
-  if (
-    requestSignals.wantsWarm &&
-    includesAnyKeyword(selectedStyles.join(" "), ["warm-wood"])
-  ) {
-    bonus += REQUEST_SIGNAL_BONUSES.warmBonus
+    if (
+      requestSignals.wantsWarm &&
+      includesAnyKeyword(selectedStyles.join(" "), ["warm-wood"])
+    ) {
+      bonus += REQUEST_SIGNAL_BONUSES.warmBonus
+    }
   }
-}
 
   if (selectedStyles.includes("minimal")) {
-  if (item.recommendation_score >= STYLE_SELECTION_BONUSES.minimalThreshold) {
-    bonus += STYLE_SELECTION_BONUSES.minimalBonus
+    if (item.recommendation_score >= STYLE_SELECTION_BONUSES.minimalThreshold) {
+      bonus += STYLE_SELECTION_BONUSES.minimalBonus
+    }
   }
-}
 
-if (selectedStyles.includes("bright")) {
-  if (item.recommendation_score >= STYLE_SELECTION_BONUSES.brightThreshold) {
-    bonus += STYLE_SELECTION_BONUSES.brightBonus
+  if (selectedStyles.includes("bright")) {
+    if (item.recommendation_score >= STYLE_SELECTION_BONUSES.brightThreshold) {
+      bonus += STYLE_SELECTION_BONUSES.brightBonus
+    }
   }
-}
 
   return bonus
 }
@@ -197,6 +210,7 @@ export function buildUserAdjustedPool<T extends ScoredFurnitureLike>(
   return items
     .map((item) => {
       const inputBonus = scoreFurnitureByUserInput(item, userInput)
+
       return {
         ...item,
         adjusted_score: item.recommendation_score + inputBonus,
@@ -216,6 +230,7 @@ export function getGroupProductLimit(userInput?: UserPreferenceInput) {
 
   if (furnitureCount <= 1) return 2
   if (furnitureCount === 2) return 3
+
   return 4
 }
 
