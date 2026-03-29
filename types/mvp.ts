@@ -28,6 +28,7 @@ export type BaseRecommendationProduct = {
 
 export type RecommendationProduct = BaseRecommendationProduct & {
   request_id: string
+  price_text?: string
 }
 
 export type GroupedRecommendationProduct = BaseRecommendationProduct & {
@@ -64,6 +65,15 @@ export type MVPResponse = {
   message?: string
 }
 
+export type MvpRequestInput = {
+  imageUrl: string
+  roomType: RoomType | null
+  styles: StyleTag[]
+  budget: BudgetLevel | null
+  furniture: FurnitureType[]
+  requestText: string
+}
+
 export type UploadImageResponse = {
   success: boolean
   imageUrl?: string
@@ -75,3 +85,11 @@ export type UploadImageResponse = {
 export type ProductLike =
   | RecommendationProduct
   | GroupedRecommendationProduct
+
+export type CompareSummary = {
+  left: ProductLike
+  right: ProductLike
+  cheaperItem: ProductLike | null
+  higherScoreItem: ProductLike | null
+  recommendationText: string
+}

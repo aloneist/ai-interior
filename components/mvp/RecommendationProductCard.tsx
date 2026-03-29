@@ -1,17 +1,7 @@
-type RecommendationProduct = {
-  id: string
-  name: string
-  brand?: string | null
-  category?: string | null
-  price?: number | null
-  price_text?: string
-  image_url?: string | null
-  recommendation_score: number
-  reason_short: string
-}
+import type { ProductLike } from "@/types/mvp"
 
 type RecommendationProductCardProps = {
-  product: RecommendationProduct
+  product: ProductLike
   savedProductIds: string[]
   comparedProductIds: string[]
   onToggleSaved: (id: string) => void

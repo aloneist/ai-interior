@@ -1,13 +1,7 @@
-type CompareItem = {
-  id: string
-  name: string
-  category?: string | null
-  price?: number | null
-  price_text?: string
-}
+import type { ProductLike } from "@/types/mvp"
 
 type ResultCompareBarProps = {
-  comparedProducts: CompareItem[]
+  comparedProducts: ProductLike[]
   onOpenProduct: (id: string) => void
   onRemoveCompared: (id: string) => void
 }

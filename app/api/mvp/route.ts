@@ -92,6 +92,14 @@ type RecommendationGroup = {
   products: ScoredFurniture[]
 }
 
+type UserPreferenceInput = {
+  roomType?: string | null
+  styles?: string[]
+  budget?: string | null
+  furniture?: string[]
+  requestText?: string
+}
+
 function formatPriceText(price: number | null) {
   if (!price || !Number.isFinite(price)) return "-"
   return `${price.toLocaleString()}원`
@@ -149,25 +157,38 @@ function uniqueById(items: ScoredFurniture[]) {
 function buildSummaryText(params: {
   mode: "balanced" | "budget" | "mood"
   roomLabels: ReturnType<typeof labelRoom>
+  userInput?: UserPreferenceInput
 }) {
-  const { mode, roomLabels } = params
+  const { mode, roomLabels, userInput } = params
+
+  const styleText =
+    userInput?.styles && userInput.styles.length > 0
+      ? `${userInput.styles.slice(0, 2).join(", ")} 취향을 반영해 `
+      : ""
+
+  const roomTypeText = userInput?.roomType ? `${userInput.roomType} 공간 기준으로 ` : ""
+
+  const requestSnippet = userInput?.requestText?.trim()
+    ? `"${userInput.requestText.trim()}" 요청을 고려해 `
+    : ""
 
   if (mode === "balanced") {
-    return `${roomLabels.brightness}, ${roomLabels.minimalism} 공간에 무난하게 어울리는 조합이에요.`
+    return `${roomTypeText}${styleText}${requestSnippet}${roomLabels.brightness}, ${roomLabels.minimalism} 흐름에 무난하게 어울리는 조합이에요.`
   }
 
   if (mode === "budget") {
-    return `가격 부담을 낮추면서도 ${roomLabels.temperature} 톤과 어색하지 않게 맞춘 조합이에요.`
+    return `${roomTypeText}${styleText}${requestSnippet}가격 부담을 낮추면서도 ${roomLabels.temperature} 톤과 어색하지 않게 맞춘 조합이에요.`
   }
 
-  return `${roomLabels.colorfulness}, ${roomLabels.contrast} 흐름을 살려 분위기 변화를 더 주는 조합이에요.`
+  return `${roomTypeText}${styleText}${requestSnippet}${roomLabels.colorfulness}, ${roomLabels.contrast} 흐름을 살려 분위기 변화를 더 주는 조합이에요.`
 }
 
 function buildRecommendationGroups(params: {
   items: ScoredFurniture[]
   roomLabels: ReturnType<typeof labelRoom>
+  userInput?: UserPreferenceInput
 }) {
-  const { items, roomLabels } = params
+  const { items, roomLabels, userInput } = params
 
   const balanced = uniqueById(pickTopByScore(items, 3))
   const budget = uniqueById(pickBudgetItems(items, 3))
@@ -179,7 +200,7 @@ function buildRecommendationGroups(params: {
       title: "추천안 A | 균형형",
       concept_tag: "무난한 조합",
       total_price_text: formatTotalPriceText(balanced),
-      summary_text: buildSummaryText({ mode: "balanced", roomLabels }),
+      summary_text: buildSummaryText({ mode: "balanced", roomLabels, userInput }),
       products: balanced,
     },
     {
@@ -187,7 +208,7 @@ function buildRecommendationGroups(params: {
       title: "추천안 B | 예산 절약형",
       concept_tag: "가성비 중심",
       total_price_text: formatTotalPriceText(budget),
-      summary_text: buildSummaryText({ mode: "budget", roomLabels }),
+      summary_text: buildSummaryText({ mode: "budget", roomLabels, userInput }),
       products: budget,
     },
     {
@@ -195,7 +216,7 @@ function buildRecommendationGroups(params: {
       title: "추천안 C | 분위기 강조형",
       concept_tag: "분위기 변화",
       total_price_text: formatTotalPriceText(mood),
-      summary_text: buildSummaryText({ mode: "mood", roomLabels }),
+      summary_text: buildSummaryText({ mode: "mood", roomLabels, userInput }),
       products: mood,
     },
   ]
@@ -225,8 +246,16 @@ function buildExternalProductUrl(item: {
 
 export async function POST(req: Request) {
   try {
-    const { imageUrl } = await req.json()
-    const request_id = crypto.randomUUID()
+    const {
+  imageUrl,
+  roomType,
+  styles = [],
+  budget,
+  furniture = [],
+  requestText = "",
+} = await req.json()
+
+const request_id = crypto.randomUUID()
 
     if (!imageUrl) {
       return NextResponse.json({ error: "imageUrl is required" }, { status: 400 })
@@ -392,6 +421,13 @@ Rules:
 const recommendationGroups = buildRecommendationGroups({
   items: deduped as ScoredFurniture[],
   roomLabels,
+  userInput: {
+    roomType,
+    styles,
+    budget,
+    furniture,
+    requestText,
+  },
 })
 
 // ✅ 추천 노출 로그 저장 (Top3)
@@ -429,6 +465,8 @@ Hard rules:
 - Forbidden generic phrases:
   "편안", "시원", "자연적인 느낌", "분위기", "고급", "감성", "좋아요", "제공"
 - No emojis, no exclamation marks.
+- If user_input exists, reflect style/budget/request briefly in the sentence when natural.
+- Prioritize the user's requestText when it clearly indicates desired feeling or constraint.
 
 Return format:
 {
@@ -443,19 +481,26 @@ Return format:
         {
           role: "user",
           content: JSON.stringify({
-            room: {
-              scores: { brightness, temperature, density, minimalism, contrast, colorfulness },
-              labels: roomLabels,
-              trust_score,
-            },
-            items: top3.map((x: any) => ({
-              product_key: x.product_key,
-              name: x.name,
-              category: x.category,
-              price: x.price,
-              score: x.recommendation_score,
-            })),
-          }),
+  room: {
+    scores: { brightness, temperature, density, minimalism, contrast, colorfulness },
+    labels: roomLabels,
+    trust_score,
+  },
+  user_input: {
+    roomType,
+    styles,
+    budget,
+    furniture,
+    requestText,
+  },
+  items: top3.map((x: any) => ({
+    product_key: x.product_key,
+    name: x.name,
+    category: x.category,
+    price: x.price,
+    score: x.recommendation_score,
+  })),
+}),
         },
       ],
     })

@@ -1,22 +1,13 @@
-type ProductDetail = {
-  id: string
-  name: string
-  brand?: string | null
-  category?: string | null
-  price?: number | null
-  image_url?: string | null
-  recommendation_score: number
-  reason_short: string
-}
+import type { ProductLike } from "@/types/mvp"
 
 type ProductDetailModalProps = {
-  product: ProductDetail | null
+  product: ProductLike | null
   savedProductIds: string[]
   comparedProductIds: string[]
   onClose: () => void
   onToggleSaved: (id: string) => void
   onToggleCompared: (id: string) => void
-  onOpenExternal: (product: ProductDetail) => void
+  onOpenExternal: (product: ProductLike) => void
 }
 
 export default function ProductDetailModal({

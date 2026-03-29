@@ -1,17 +1,9 @@
-type SavedItem = {
-  id: string
-  name: string
-  category?: string | null
-  price?: number | null
-  price_text?: string
-  image_url?: string | null
-  reason_short: string
-}
+import type { ProductLike } from "@/types/mvp"
 
 type SavedProductsSectionProps = {
-  savedProducts: SavedItem[]
+  savedProducts: ProductLike[]
   onOpenProduct: (id: string) => void
-  onOpenExternal: (item: SavedItem) => void
+  onOpenExternal: (item: ProductLike) => void
   onToggleSaved: (id: string) => void
 }
 

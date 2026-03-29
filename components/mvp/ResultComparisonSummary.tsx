@@ -1,22 +1,7 @@
-type ComparisonItem = {
-  id: string
-  name: string
-  category?: string | null
-  price?: number | null
-  price_text?: string
-  recommendation_score: number
-}
-
-type ComparisonSummary = {
-  left: ComparisonItem
-  right: ComparisonItem
-  cheaperItem: ComparisonItem | null
-  higherScoreItem: ComparisonItem | null
-  recommendationText: string
-}
+import type { CompareSummary } from "@/types/mvp"
 
 type ResultComparisonSummaryProps = {
-  comparisonSummary: ComparisonSummary | null
+  comparisonSummary: CompareSummary | null
 }
 
 export default function ResultComparisonSummary({

@@ -1,30 +1,10 @@
 import RecommendationProductCard from "@/components/mvp/RecommendationProductCard"
-
-type RecommendationProduct = {
-  id: string
-  name: string
-  brand?: string | null
-  category?: string | null
-  price?: number | null
-  price_text?: string
-  image_url?: string | null
-  recommendation_score: number
-  reason_short: string
-}
-
-type RecommendationGroup = {
-  id: "balanced" | "budget" | "mood"
-  title: string
-  concept_tag: string
-  total_price_text: string
-  summary_text: string
-  products: RecommendationProduct[]
-}
+import type { GroupedRecommendation } from "@/types/mvp"
 
 type RecommendationGroupSectionProps = {
-  groups: RecommendationGroup[]
-  selectedGroupId: "balanced" | "budget" | "mood"
-  setSelectedGroupId: (id: "balanced" | "budget" | "mood") => void
+  groups: GroupedRecommendation[]
+  selectedGroupId: GroupedRecommendation["id"]
+  setSelectedGroupId: (id: GroupedRecommendation["id"]) => void
   savedProductIds: string[]
   comparedProductIds: string[]
   onToggleSaved: (id: string) => void

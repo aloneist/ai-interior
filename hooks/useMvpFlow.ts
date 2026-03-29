@@ -3,9 +3,11 @@
 import { useMemo, useState } from "react"
 import type {
   BudgetLevel,
+  CompareSummary,
   FurnitureType,
   GroupedRecommendation,
   MVPResponse,
+  MvpRequestInput,
   ProductLike,
   RoomType,
   Step,
@@ -18,10 +20,61 @@ type UseMvpFlowParams = {
   styleOptions: Array<{ value: StyleTag; label: string }>
 }
 
+type UseMvpFlowReturn = {
+  step: Step
+  setStep: React.Dispatch<React.SetStateAction<Step>>
+
+  imageUrl: string
+  setImageUrl: React.Dispatch<React.SetStateAction<string>>
+  selectedFile: File | null
+  localPreviewUrl: string | null
+  roomType: RoomType | null
+  setRoomType: React.Dispatch<React.SetStateAction<RoomType | null>>
+
+  styles: StyleTag[]
+  budget: BudgetLevel | null
+  setBudget: React.Dispatch<React.SetStateAction<BudgetLevel | null>>
+  furniture: FurnitureType[]
+  requestText: string
+  setRequestText: React.Dispatch<React.SetStateAction<string>>
+
+  loading: boolean
+  data: MVPResponse | null
+  error: string | null
+
+  selectedGroupId: GroupedRecommendation["id"]
+  setSelectedGroupId: React.Dispatch<React.SetStateAction<GroupedRecommendation["id"]>>
+  selectedProductId: string | null
+  setSelectedProductId: React.Dispatch<React.SetStateAction<string | null>>
+
+  savedProductIds: string[]
+  comparedProductIds: string[]
+
+  selectedProduct: ProductLike | null
+  comparedProducts: ProductLike[]
+  comparisonSummary: CompareSummary | null
+  savedProducts: ProductLike[]
+
+  canGoInputNext: boolean
+  canGoPreferenceNext: boolean
+  headerTitle: string
+  headerSubtitle: string
+
+  handleFileChange: (file: File | null) => void
+  resetFileStateForUrlInput: () => void
+  toggleStyle: (value: StyleTag) => void
+  toggleFurniture: (value: FurnitureType) => void
+  toggleSavedProduct: (productId: string) => void
+  toggleComparedProduct: (productId: string) => void
+  openExternalProductLink: (product: ProductLike) => Promise<void>
+  runMVP: () => Promise<void>
+  resetResultAndGoPreference: () => void
+}
+
 export default function useMvpFlow({
   roomOptions,
   styleOptions,
-}: UseMvpFlowParams) {
+}: UseMvpFlowParams): UseMvpFlowReturn {
   const [step, setStep] = useState<Step>("intro")
 
   const [imageUrl, setImageUrl] = useState(
@@ -157,7 +210,8 @@ export default function useMvpFlow({
       ? `요청하신 "${requestText.trim()}"를 반영해 `
       : ""
 
-    return `${styleText}${requestSnippet}실제 구매 가능한 후보를 골랐어요`
+    const budgetText = budget ? `${budget} 예산 기준으로 ` : ""
+    return `${styleText}${budgetText}${requestSnippet}실제 구매 가능한 후보를 골랐어요`
   }, [requestText, styleOptions, styles])
 
   const handleFileChange = (file: File | null) => {
@@ -276,11 +330,20 @@ export default function useMvpFlow({
         return
       }
 
-      const res = await fetch("/api/mvp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl: finalImageUrl }),
-      })
+      const payload: MvpRequestInput = {
+  imageUrl: finalImageUrl,
+  roomType,
+  styles,
+  budget,
+  furniture,
+  requestText,
+}
+
+const res = await fetch("/api/mvp", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+})
 
       const json = (await res.json()) as MVPResponse
 
