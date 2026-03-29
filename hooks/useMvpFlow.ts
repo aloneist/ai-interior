@@ -71,6 +71,13 @@ type UseMvpFlowReturn = {
   resetResultAndGoPreference: () => void
 }
 
+function toBudgetLabel(budget: BudgetLevel | null) {
+  if (budget === "low") return "낮은 예산"
+  if (budget === "medium") return "보통 예산"
+  if (budget === "high") return "여유 있는 예산"
+  return null
+}
+
 export default function useMvpFlow({
   roomOptions,
   styleOptions,
@@ -199,20 +206,21 @@ export default function useMvpFlow({
   }, [roomOptions, roomType])
 
   const headerSubtitle = useMemo(() => {
-    const styleLabels = styleOptions
-      .filter((item) => styles.includes(item.value))
-      .map((item) => item.label)
+  const styleLabels = styleOptions
+    .filter((item) => styles.includes(item.value))
+    .map((item) => item.label)
 
-    const styleText =
-      styleLabels.length > 0 ? `${styleLabels.slice(0, 2).join(", ")} 중심으로 ` : ""
+  const styleText =
+    styleLabels.length > 0 ? `${styleLabels.slice(0, 2).join(", ")} 중심으로 ` : ""
 
-    const requestSnippet = requestText.trim()
-      ? `요청하신 "${requestText.trim()}"를 반영해 `
-      : ""
+  const budgetText = toBudgetLabel(budget) ? `${toBudgetLabel(budget)} 안에서 ` : ""
 
-    const budgetText = budget ? `${budget} 예산 기준으로 ` : ""
-    return `${styleText}${budgetText}${requestSnippet}실제 구매 가능한 후보를 골랐어요`
-  }, [requestText, styleOptions, styles])
+  const requestSnippet = requestText.trim()
+    ? `요청하신 "${requestText.trim()}"를 반영해 `
+    : ""
+
+  return `${styleText}${budgetText}${requestSnippet}실제 구매 가능한 후보를 골랐어요`
+}, [budget, requestText, styleOptions, styles])
 
   const handleFileChange = (file: File | null) => {
     setSelectedFile(file)
