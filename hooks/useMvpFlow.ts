@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { toBudgetLabel } from "@/lib/mvp/labels"
 import type {
   BudgetLevel,
   CompareSummary,
@@ -69,13 +70,6 @@ type UseMvpFlowReturn = {
   openExternalProductLink: (product: ProductLike) => Promise<void>
   runMVP: () => Promise<void>
   resetResultAndGoPreference: () => void
-}
-
-function toBudgetLabel(budget: BudgetLevel | null) {
-  if (budget === "low") return "낮은 예산"
-  if (budget === "medium") return "보통 예산"
-  if (budget === "high") return "여유 있는 예산"
-  return null
 }
 
 export default function useMvpFlow({
