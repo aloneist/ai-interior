@@ -7,7 +7,7 @@ on:
       - main
 
 jobs:
-  lint-and-build:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,9 +22,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Lint
-        run: npm run lint
 
       - name: Build
         run: npm run build

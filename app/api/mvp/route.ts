@@ -33,6 +33,37 @@ type ScoredFurniture = GroupableFurniture & {
   created_at?: string | null
 }
 
+type FurnitureRecord = {
+  id: string
+  name: string
+  brand: string | null
+  category: string | null
+  price: number | null
+  image_url: string | null
+  product_key?: string | null
+  created_at?: string | null
+}
+
+type FurnitureVectorRow = {
+  furniture_id: string
+  brightness_compatibility: number | null
+  color_temperature_score: number | null
+  spatial_footprint_score: number | null
+  minimalism_score: number | null
+  contrast_score: number | null
+  colorfulness_score: number | null
+  furniture: FurnitureRecord | FurnitureRecord[] | null
+}
+
+type ExplainReason = {
+  product_key: string
+  reason_short: string
+}
+
+type ExplainResponse = {
+  reasons?: ExplainReason[]
+}
+
 function formatPriceText(price: number | null) {
   if (!price || !Number.isFinite(price)) return "-"
   return `${price.toLocaleString()}원`
@@ -42,7 +73,7 @@ function buildExternalProductUrl(item: {
   product_key?: string | null
   brand?: string | null
   name?: string | null
-}) {
+}): string | undefined {
   const rawKey = item.product_key?.trim() ?? ""
 
   if (/^https?:\/\//i.test(rawKey)) {
@@ -51,11 +82,26 @@ function buildExternalProductUrl(item: {
 
   const query = [item.brand, item.name].filter(Boolean).join(" ").trim()
 
-  if (!query) return null
+  if (!query) return undefined
 
   return `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(
     query
   )}`
+}
+
+function normalizeFurnitureRecord(
+  furniture: FurnitureVectorRow["furniture"]
+): FurnitureRecord | null {
+  if (Array.isArray(furniture)) {
+    return furniture[0] ?? null
+  }
+
+  return furniture
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message
+  return "Unknown error"
 }
 
 export async function POST(req: Request) {
@@ -75,9 +121,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "imageUrl is required" }, { status: 400 })
     }
 
-    // -----------------------
-    // 1) 공간 분석 (OpenAI Vision)
-    // -----------------------
     const analyzeRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       response_format: { type: "json_object" },
@@ -110,9 +153,6 @@ export async function POST(req: Request) {
       dominant_color_hex: normalized.dominant_color_hex,
     }
 
-    // -----------------------
-    // 2) spaces 저장
-    // -----------------------
     const { data: spaceRow, error: spaceErr } = await supabase
       .from("spaces")
       .insert(spaceNormalized)
@@ -121,9 +161,6 @@ export async function POST(req: Request) {
 
     if (spaceErr) throw spaceErr
 
-    // -----------------------
-    // 3) 추천 점수 계산
-    // -----------------------
     const brightness = spaceNormalized.brightness_score
     const temperature = spaceNormalized.color_temperature_score
     const density = spaceNormalized.spatial_density_score
@@ -175,33 +212,40 @@ export async function POST(req: Request) {
 
     if (vecErr) throw vecErr
 
-    const scored = vectors.map((item: any) => {
-      const d =
-        weights.brightness *
-          Math.abs((item.brightness_compatibility ?? 50) - brightness) +
-        weights.temperature *
-          Math.abs((item.color_temperature_score ?? 50) - temperature) +
-        weights.footprint *
-          Math.abs((item.spatial_footprint_score ?? 50) - footprint) +
-        weights.minimalism *
-          Math.abs((item.minimalism_score ?? 50) - minimalism) +
-        weights.contrast * Math.abs((item.contrast_score ?? 50) - contrast) +
-        weights.colorfulness *
-          Math.abs((item.colorfulness_score ?? 50) - colorfulness)
+    const typedVectors = (vectors ?? []) as FurnitureVectorRow[]
 
-      const score = 100 - d
+        const scored: ScoredFurniture[] = typedVectors
+      .map((item): ScoredFurniture | null => {
+        const furnitureRecord = normalizeFurnitureRecord(item.furniture)
+        if (!furnitureRecord) return null
 
-      return {
-        ...item.furniture,
-        recommendation_score: Math.round(score),
-        external_url: buildExternalProductUrl(item.furniture),
-      }
-    })
+        const d =
+          weights.brightness *
+            Math.abs((item.brightness_compatibility ?? 50) - brightness) +
+          weights.temperature *
+            Math.abs((item.color_temperature_score ?? 50) - temperature) +
+          weights.footprint *
+            Math.abs((item.spatial_footprint_score ?? 50) - footprint) +
+          weights.minimalism *
+            Math.abs((item.minimalism_score ?? 50) - minimalism) +
+          weights.contrast * Math.abs((item.contrast_score ?? 50) - contrast) +
+          weights.colorfulness *
+            Math.abs((item.colorfulness_score ?? 50) - colorfulness)
 
-    scored.sort((a: any, b: any) => b.recommendation_score - a.recommendation_score)
+        const score = 100 - d
+
+        return {
+          ...furnitureRecord,
+          recommendation_score: Math.round(score),
+          external_url: buildExternalProductUrl(furnitureRecord),
+        }
+      })
+      .filter((item): item is ScoredFurniture => item !== null)
+
+    scored.sort((a, b) => b.recommendation_score - a.recommendation_score)
 
     const seen = new Set<string>()
-    const deduped: any[] = []
+    const deduped: ScoredFurniture[] = []
 
     for (const item of scored) {
       const key =
@@ -219,7 +263,7 @@ export async function POST(req: Request) {
     const top3 = deduped.slice(0, 3)
 
     const recommendationGroups = buildRecommendationGroups({
-      items: deduped as ScoredFurniture[],
+      items: deduped,
       roomLabels,
       userInput: {
         roomType,
@@ -231,12 +275,12 @@ export async function POST(req: Request) {
     })
 
     await supabase.from("recommendations").insert(
-      top3.map((x: any) => ({
+      top3.map((item) => ({
         request_id,
         event_source: "web",
         space_id: spaceRow.id,
-        furniture_id: x.id,
-        compatibility_score: x.recommendation_score,
+        furniture_id: item.id,
+        compatibility_score: item.recommendation_score,
         clicked: false,
         saved: false,
         purchased: false,
@@ -272,12 +316,12 @@ export async function POST(req: Request) {
                 furniture,
                 requestText,
               },
-              items: top3.map((x: any) => ({
-                product_key: x.product_key,
-                name: x.name,
-                category: x.category,
-                price: x.price,
-                score: x.recommendation_score,
+              items: top3.map((item) => ({
+                product_key: item.product_key,
+                name: item.name,
+                category: item.category,
+                price: item.price,
+                score: item.recommendation_score,
               })),
             })
           ),
@@ -285,23 +329,29 @@ export async function POST(req: Request) {
       ],
     })
 
-    const explainJson = JSON.parse(explainRes.choices[0].message.content!)
+    const explainJson = JSON.parse(
+      explainRes.choices[0].message.content!
+    ) as ExplainResponse
+
     const reasonMap = new Map<string, string>(
-      (explainJson.reasons ?? []).map((r: any) => [r.product_key, r.reason_short])
+      (explainJson.reasons ?? []).map((reason) => [
+        reason.product_key,
+        reason.reason_short,
+      ])
     )
 
-    const top3WithReasons = top3.map((x: any) => ({
-      ...x,
-      external_url: x.external_url ?? buildExternalProductUrl(x),
+    const top3WithReasons = top3.map((item) => ({
+      ...item,
+      external_url: item.external_url ?? buildExternalProductUrl(item),
       reason_short:
-        reasonMap.get(x.product_key) ??
+        reasonMap.get(item.product_key ?? "") ??
         "공간 톤과 대비에 무난히 맞는 선택이에요.",
     }))
 
     const groupedRecommendations = recommendationGroups.map((group) => ({
       ...group,
       products: group.products.map((product) => {
-        const matched = top3WithReasons.find((item: any) => item.id === product.id)
+        const matched = top3WithReasons.find((item) => item.id === product.id)
 
         return {
           ...product,
@@ -328,10 +378,10 @@ export async function POST(req: Request) {
       recommendations: top3WithReasons,
       grouped_recommendations: groupedRecommendations,
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("MVP API ERROR:", err)
     return NextResponse.json(
-      { error: "MVP failed", message: err.message },
+      { error: "MVP failed", message: getErrorMessage(err) },
       { status: 500 }
     )
   }

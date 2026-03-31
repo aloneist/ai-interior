@@ -357,8 +357,11 @@ const res = await fetch("/api/mvp", {
 
       setData(json)
       setStep("result")
-    } catch (e: any) {
-      setError(e?.message || "에러 발생")
+    } catch (e: unknown) {
+      const message =
+        e instanceof Error ? e.message : "에러 발생"
+
+      setError(message)
       setStep("preference")
     } finally {
       setLoading(false)
