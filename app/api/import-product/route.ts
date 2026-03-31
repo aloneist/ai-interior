@@ -1,8 +1,8 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
-import { createClient } from "@supabase/supabase-js";
+import { getOpenAIClient } from "@/lib/server/openai";
+import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { parseIkeaPayload } from "@/lib/parsers";
 import {
   normalizeCategoryText,
@@ -14,15 +14,6 @@ import {
   toMaterialDisplaysKo,
   toColorFamilyDisplayKo,
 } from "@/lib/taxonomy";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 type EnrichedAiResult = {
   extracted_material?: string | null;
@@ -248,6 +239,8 @@ export async function POST(req: Request) {
       );
     }
 
+    const openai = getOpenAIClient();
+    const supabase = getSupabaseAdminClient();
     const normalizedUrl = normalizeUrl(sourceUrl);
     const sourceSite = detectSourceSite(normalizedUrl);
 
@@ -470,13 +463,16 @@ Rules:
       success: true,
       import_job: importJob,
     });
-  } catch (err: any) {
+    } catch (err: unknown) {
     console.error("IMPORT PRODUCT ERROR:", err);
+
+    const message =
+      err instanceof Error ? err.message : "Import product failed";
 
     return NextResponse.json(
       {
         error: "Import product failed",
-        message: err.message,
+        message,
       },
       { status: 500 }
     );

@@ -1,8 +1,8 @@
 export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import OpenAI from "openai"
+import { getOpenAIClient } from "@/lib/server/openai"
+import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 import {
   buildRecommendationGroups,
   type GroupableFurniture,
@@ -18,15 +18,6 @@ import {
   normalizeRoomAnalysis,
   trustNote,
 } from "@/lib/mvp/room-analysis"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
 
 type ScoredFurniture = GroupableFurniture & {
   product_key?: string | null
@@ -115,6 +106,8 @@ export async function POST(req: Request) {
       requestText = "",
     } = await req.json()
 
+    const openai = getOpenAIClient()
+    const supabase = getSupabaseAdminClient()
     const request_id = crypto.randomUUID()
 
     if (!imageUrl) {

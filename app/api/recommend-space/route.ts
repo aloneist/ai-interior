@@ -1,17 +1,8 @@
 export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-import OpenAI from "openai"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
+import { getOpenAIClient } from "@/lib/server/openai"
+import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
 function clamp01to100(v: number) {
   return Math.max(0, Math.min(100, Math.round(v)))
@@ -38,6 +29,8 @@ function trustNote(trust: number) {
 
 export async function POST(req: Request) {
   try {
+    const supabase = getSupabaseAdminClient()
+    const openai = getOpenAIClient()
     const { space_id } = await req.json()
 
     if (!space_id) {
@@ -235,10 +228,14 @@ Return format:
       trust_note,
       recommendations: top3WithReasons,
     })
-  } catch (err: any) {
+    } catch (err: unknown) {
     console.error("RECOMMEND SPACE ERROR:", err)
+
+    const message =
+      err instanceof Error ? err.message : "Recommend space failed"
+
     return NextResponse.json(
-      { error: "Recommend space failed", message: err.message },
+      { error: "Recommend space failed", message },
       { status: 500 }
     )
   }

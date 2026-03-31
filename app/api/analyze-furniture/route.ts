@@ -1,29 +1,8 @@
 export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
-import OpenAI from "openai"
-import { createClient } from "@supabase/supabase-js"
-
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY
-
-  if (!apiKey) {
-    throw new Error("Missing OPENAI_API_KEY")
-  }
-
-  return new OpenAI({ apiKey })
-}
-
-function getSupabaseAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!url || !key) {
-    throw new Error("Missing Supabase admin environment variables")
-  }
-
-  return createClient(url, key)
-}
+import { getOpenAIClient } from "@/lib/server/openai"
+import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
 function makeProductKey(input: {
   name?: string

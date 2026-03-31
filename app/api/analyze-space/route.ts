@@ -1,17 +1,8 @@
 export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
-import OpenAI from "openai"
-import { createClient } from "@supabase/supabase-js"
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getOpenAIClient } from "@/lib/server/openai"
+import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
 function clampScore(v: any) {
   const n = Number(v)
@@ -28,6 +19,8 @@ function normalizeHex(hex: any) {
 export async function POST(req: Request) {
   try {
     const { imageUrl } = await req.json()
+    const openai = getOpenAIClient()
+    const supabase = getSupabaseAdminClient()
 
     if (!imageUrl) {
       return NextResponse.json({ error: "imageUrl is required" }, { status: 400 })
@@ -102,10 +95,14 @@ Rules:
     if (error) throw error
 
     return NextResponse.json({ success: true, space, analysis: normalized })
-  } catch (err: any) {
+    } catch (err: unknown) {
     console.error("ANALYZE SPACE ERROR:", err)
+
+    const message =
+      err instanceof Error ? err.message : "Analyze space failed"
+
     return NextResponse.json(
-      { error: "Analyze space failed", message: err.message },
+      { error: "Analyze space failed", message },
       { status: 500 }
     )
   }
