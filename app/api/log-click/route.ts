@@ -1,12 +1,7 @@
 export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
 export async function POST(req: Request) {
   try {
@@ -19,6 +14,8 @@ export async function POST(req: Request) {
       )
     }
 
+    const supabase = getSupabaseAdminClient()
+
     // 최근 노출 로그 1개를 clicked=true로 업데이트
     const { data, error } = await supabase
       .from("recommendations")
@@ -28,14 +25,18 @@ export async function POST(req: Request) {
       .select()
       .single()
 
-    if (error) throw error
+      if (error) throw error
 
     return NextResponse.json({ success: true, updated: data })
-  } catch (err: any) {
-    console.error("LOG CLICK ERROR:", err)
-    return NextResponse.json(
-      { error: "Log click failed", message: err.message },
-      { status: 500 }
+    } catch (err: unknown) {
+      console.error("LOG CLICK ERROR:", err)
+
+      const message =
+        err instanceof Error ? err.message : "Log click failed"
+
+      return NextResponse.json(
+        { error: "Log click failed", message },
+        { status: 500 }
     )
   }
 }
