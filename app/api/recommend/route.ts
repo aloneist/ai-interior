@@ -1,12 +1,7 @@
 export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
 export async function POST(req: Request) {
   try {
@@ -27,6 +22,8 @@ export async function POST(req: Request) {
       contrast: 0.1,
       colorfulness: 0.1,
     }
+
+    const supabase = getSupabaseAdminClient()
 
     const { data: vectors, error } = await supabase
       .from("furniture_vectors")
