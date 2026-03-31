@@ -4,14 +4,26 @@ import { NextResponse } from "next/server"
 import OpenAI from "openai"
 import { createClient } from "@supabase/supabase-js"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+  if (!apiKey) {
+    throw new Error("Missing OPENAI_API_KEY")
+  }
+
+  return new OpenAI({ apiKey })
+}
+
+function getSupabaseAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !key) {
+    throw new Error("Missing Supabase admin environment variables")
+  }
+
+  return createClient(url, key)
+}
 
 function makeProductKey(input: {
   name?: string
@@ -35,11 +47,14 @@ function clampScore(v: any) {
 
 export async function POST(req: Request) {
   try {
-  const token = req.headers.get("x-admin-token")
+    const token = req.headers.get("x-admin-token")
     if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    
+
+    const openai = getOpenAIClient()
+    const supabase = getSupabaseAdminClient()
+
     const body = await req.json()
     const { name, brand, category, price, imageUrl } = body
 
@@ -139,16 +154,19 @@ if (upsertError) throw upsertError
 )
 
     return NextResponse.json({ success: true, analysis })
-  } catch (err: any) {
-  console.error("🔥 FULL ERROR:", err)
+    } catch (err: unknown) {
+    console.error("🔥 FULL ERROR:", err)
 
-  return NextResponse.json(
-    { 
-      error: "Analysis failed",
-      message: err.message,
-      stack: err.stack
-    },
-    { status: 500 }
-  )
-}
+    const message = err instanceof Error ? err.message : "Analysis failed"
+    const stack = err instanceof Error ? err.stack : undefined
+
+    return NextResponse.json(
+      {
+        error: "Analysis failed",
+        message,
+        stack,
+      },
+      { status: 500 }
+    )
+  }
 }
