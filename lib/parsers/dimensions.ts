@@ -7,8 +7,6 @@ export type ParsedDimensions = {
   raw_dimension_text: string | null;
 };
 
-type DimensionKey = "width_cm" | "depth_cm" | "height_cm";
-
 const SECTION_KEYWORDS = [
   "치수",
   "제품 크기",

@@ -17,10 +17,11 @@ export async function POST(req: Request) {
     const result = await generateImage(image, prompt);
 
     return Response.json({ image: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Image generation failed";
     console.error("Route Error:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { status: 500 }
     );
   }

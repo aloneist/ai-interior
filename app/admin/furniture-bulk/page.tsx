@@ -2,6 +2,11 @@
 
 import { useState } from "react"
 
+type AnalyzeFurnitureResponse = {
+  message?: string
+  error?: string
+}
+
 type RowResult = {
   line: number
   raw: string
@@ -65,7 +70,7 @@ export default function AdminFurnitureBulk() {
           body: JSON.stringify(parsed),
         })
 
-        const data = await res.json()
+        const data = (await res.json()) as AnalyzeFurnitureResponse
 
         if (!res.ok) {
           out.push({
@@ -82,12 +87,13 @@ export default function AdminFurnitureBulk() {
             message: "분석 + 저장 완료",
           })
         }
-      } catch (err: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "요청 실패"
         out.push({
           line: i + 1,
           raw,
           ok: false,
-          message: err?.message || "요청 실패",
+          message,
         })
       }
 

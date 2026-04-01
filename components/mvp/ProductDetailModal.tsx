@@ -40,11 +40,14 @@ export default function ProductDetailModal({
         </div>
 
         {product.image_url ? (
-          <img
-            src={product.image_url}
-            alt={product.name}
-            className="mt-5 h-72 w-full rounded-2xl border object-cover"
-          />
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="mt-5 h-72 w-full rounded-2xl border object-cover"
+            />
+          </>
         ) : null}
 
         <div className="mt-5 space-y-3 text-sm">

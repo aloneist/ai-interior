@@ -2,6 +2,8 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { compareIkeaParsers } from "@/lib/parsers";
+import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
+import type { RawProductSnapshot } from "@/lib/parsers/shared/snapshot";
 
 function normalizeUrl(url: string) {
   try {
@@ -27,8 +29,8 @@ function detectSourceSite(url: string) {
 }
 
 function makeParserNotes(params: {
-  parsed: any;
-  snapshot: any;
+  parsed: ParsedFurnitureProduct | null;
+  snapshot: RawProductSnapshot | null;
 }) {
   const { parsed, snapshot } = params;
 
@@ -170,13 +172,16 @@ export async function POST(req: Request) {
         parser_notes: parserNotes,
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("TEST PARSER ERROR:", err);
+
+    const message =
+      err instanceof Error ? err.message : "Test parser failed";
 
     return NextResponse.json(
       {
         error: "Test parser failed",
-        message: err.message,
+        message,
       },
       { status: 500 }
     );

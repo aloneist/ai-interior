@@ -70,7 +70,6 @@ export default function Home() {
 
     selectedGroupId,
     setSelectedGroupId,
-    selectedProductId,
     setSelectedProductId,
 
     savedProductIds,
@@ -191,6 +190,7 @@ export default function Home() {
               <div className="mt-6 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
                 <div className="rounded-2xl border p-4">
                   <div className="text-sm font-medium">입력 이미지</div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={data.analysis.image_url}
                     alt="room"

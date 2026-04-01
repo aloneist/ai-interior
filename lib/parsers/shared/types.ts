@@ -1,3 +1,19 @@
+export type ParserMetadata = {
+  parser_version?: string;
+  source_site?: string;
+  source_url?: string | null;
+  category_hint?: string | null;
+  raw_dimension_text_preview?: string | null;
+  diameter_cm?: number | null;
+  derived_width_from_diameter?: boolean;
+  derived_depth_from_diameter?: boolean;
+  overall_height_cm?: number | null;
+  backrest_height_cm?: number | null;
+  site_metadata?: ParserMetadata;
+  debug?: ParserDebugMeta;
+  [key: string]: unknown;
+};
+
 export type ParsedFurnitureProduct = {
   product_name: string | null;
   brand: string | null;
@@ -11,7 +27,7 @@ export type ParsedFurnitureProduct = {
   width_cm: number | null;
   depth_cm: number | null;
   height_cm: number | null;
-  metadata_json: Record<string, any>;
+  metadata_json: ParserMetadata;
 };
 
 export type CollectLabeledDimensionCandidatesParams = {

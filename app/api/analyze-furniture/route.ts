@@ -4,6 +4,24 @@ import { NextResponse } from "next/server"
 import { getOpenAIClient } from "@/lib/server/openai"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
+type AnalyzeFurnitureRequest = {
+  name?: string
+  brand?: string
+  category?: string
+  price?: number | null
+  imageUrl: string
+}
+
+type FurnitureAnalysisResult = {
+  brightness_compatibility?: unknown
+  color_temperature_score?: unknown
+  spatial_footprint_score?: unknown
+  minimalism_score?: unknown
+  contrast_score?: unknown
+  colorfulness_score?: unknown
+  dominant_color_hex?: string | null
+}
+
 function makeProductKey(input: {
   name?: string
   brand?: string
@@ -18,7 +36,7 @@ function makeProductKey(input: {
   return `${norm(input.brand)}|${norm(input.name)}|${norm(input.category)}`
 }
 
-function clampScore(v: any) {
+function clampScore(v: unknown) {
   const n = Number(v)
   if (!Number.isFinite(n)) return 50
   return Math.max(0, Math.min(100, Math.round(n)))
@@ -34,7 +52,7 @@ export async function POST(req: Request) {
     const openai = getOpenAIClient()
     const supabase = getSupabaseAdminClient()
 
-    const body = await req.json()
+    const body = (await req.json()) as AnalyzeFurnitureRequest
     const { name, brand, category, price, imageUrl } = body
 
     const response = await openai.chat.completions.create({
@@ -85,7 +103,9 @@ Rules:
       ],
     })
 
-    const analysis = JSON.parse(response.choices[0].message.content!)
+    const analysis: FurnitureAnalysisResult = JSON.parse(
+      response.choices[0].message.content!
+    )
 
     const product_key = makeProductKey({ name, brand, category })
 
@@ -118,22 +138,22 @@ if (upsertError) throw upsertError
     }
 
     await supabase.from("furniture_vectors").upsert(
-  {
-    furniture_id: furniture.id,
-    vector_version: "v1",
-    brightness_compatibility: normalized.brightness_compatibility,
-    color_temperature_score: normalized.color_temperature_score,
-    spatial_footprint_score: normalized.spatial_footprint_score,
-    minimalism_score: normalized.minimalism_score,
-    contrast_score: normalized.contrast_score,
-    colorfulness_score: normalized.colorfulness_score,
-    dominant_color_hex: normalized.dominant_color_hex,
-  },
-  { onConflict: "furniture_id,vector_version" }
-)
+      {
+        furniture_id: furniture.id,
+        vector_version: "v1",
+        brightness_compatibility: normalized.brightness_compatibility,
+        color_temperature_score: normalized.color_temperature_score,
+        spatial_footprint_score: normalized.spatial_footprint_score,
+        minimalism_score: normalized.minimalism_score,
+        contrast_score: normalized.contrast_score,
+        colorfulness_score: normalized.colorfulness_score,
+        dominant_color_hex: normalized.dominant_color_hex,
+      },
+      { onConflict: "furniture_id,vector_version" }
+    )
 
     return NextResponse.json({ success: true, analysis })
-    } catch (err: unknown) {
+  } catch (err: unknown) {
     console.error("🔥 FULL ERROR:", err)
 
     const message = err instanceof Error ? err.message : "Analysis failed"

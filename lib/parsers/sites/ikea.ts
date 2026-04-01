@@ -1,6 +1,5 @@
 import * as cheerio from "cheerio";
 import {
-  normalizeCategory,
   resolveCategory,
 } from "@/lib/parsers/shared/category";
 import { buildParserDebug } from "@/lib/parsers/shared/debug";
@@ -10,6 +9,20 @@ import {
   normalizeText,
 } from "@/lib/parsers/shared/text"; 
 import type { RawProductSnapshot } from "@/lib/parsers/shared/snapshot";
+
+type IkeaRawInput = {
+  full_html?: string;
+  html?: string;
+  raw_html?: string;
+  html_snippet?: string;
+  url?: string | null;
+  source_url?: string | null;
+  raw_payload?: {
+    full_html?: string;
+    html?: string;
+    html_snippet?: string;
+  } | null;
+};
 
 const STOP_SECTION_KEYWORDS = [
   "포장",
@@ -21,7 +34,7 @@ const STOP_SECTION_KEYWORDS = [
   "관련 상품",
 ];
 
-function textOf($: cheerio.CheerioAPI, el: any): string {
+function textOf($: cheerio.CheerioAPI, el: Parameters<cheerio.CheerioAPI>[0]): string {
   return normalizeText($(el).text() || "");
 }
 
@@ -350,33 +363,34 @@ function resolveIkeaCategoryHint(params: {
   return resolveCategory(joined);
 }
 
-export function extractIkeaSnapshot(raw: any): RawProductSnapshot {
+export function extractIkeaSnapshot(raw: unknown): RawProductSnapshot {
+  const source = raw as IkeaRawInput | null | undefined;
   const html =
-    raw?.full_html ??
-    raw?.html ??
-    raw?.raw_html ??
-    raw?.raw_payload?.full_html ??
-    raw?.raw_payload?.html ??
-    raw?.html_snippet ??
-    raw?.raw_payload?.html_snippet ??
+    source?.full_html ??
+    source?.html ??
+    source?.raw_html ??
+    source?.raw_payload?.full_html ??
+    source?.raw_payload?.html ??
+    source?.html_snippet ??
+    source?.raw_payload?.html_snippet ??
     "";
 
   const title = extractProductName(html);
-const description = extractDescription(html);
-const dimensionSectionText = extractDimensionSection(html);
+  const description = extractDescription(html);
+  const dimensionSectionText = extractDimensionSection(html);
 
-const categoryResolution = resolveIkeaCategoryHint({
-  title,
-  description,
-  dimensionSectionText,
-  sourceUrl: raw?.url ?? raw?.source_url ?? null,
-});
+  const categoryResolution = resolveIkeaCategoryHint({
+    title,
+    description,
+    dimensionSectionText,
+    sourceUrl: source?.url ?? source?.source_url ?? null,
+  });
 
-const categoryHint = categoryResolution.category;
+  const categoryHint = categoryResolution.category;
 
   return {
     source_site: "ikea",
-    source_url: raw?.url ?? raw?.source_url ?? null,
+    source_url: source?.url ?? source?.source_url ?? null,
     html,
     title,
     price_text: extractPriceText(html),
@@ -385,31 +399,31 @@ const categoryHint = categoryResolution.category;
     category_hint: categoryHint,
     dimension_section_text: dimensionSectionText,
     metadata_json: {
-  parser_version: "ikea-site-snapshot-v1",
-  debug: buildParserDebug({
-  html_length: typeof html === "string" ? html.length : 0,
-  has_dimension_keyword:
-    typeof html === "string"
-      ? html.includes("치수") ||
-        html.includes("제품 크기") ||
-        html.toLowerCase().includes("dimensions")
-      : false,
-  width_cm: null,
-  depth_cm: null,
-  height_cm: null,
-  raw_dimension_text_preview: dimensionSectionText?.slice(0, 1000) ?? null,
-  category_hint: categoryHint,
-  category_hint_source_preview: normalizeText(
-    [
-      title ?? "",
-      description ?? "",
-      dimensionSectionText?.slice(0, 300) ?? "",
-    ].join(" ")
-  ).slice(0, 500),
-  category_confidence: categoryResolution.confidence,
-  category_scores: categoryResolution.scores,
-  parser_version: "ikea-site-snapshot-v1",
-}),
-},
+      parser_version: "ikea-site-snapshot-v1",
+      debug: buildParserDebug({
+        html_length: typeof html === "string" ? html.length : 0,
+        has_dimension_keyword:
+          typeof html === "string"
+            ? html.includes("치수") ||
+              html.includes("제품 크기") ||
+              html.toLowerCase().includes("dimensions")
+            : false,
+        width_cm: null,
+        depth_cm: null,
+        height_cm: null,
+        raw_dimension_text_preview: dimensionSectionText?.slice(0, 1000) ?? null,
+        category_hint: categoryHint,
+        category_hint_source_preview: normalizeText(
+          [
+            title ?? "",
+            description ?? "",
+            dimensionSectionText?.slice(0, 300) ?? "",
+          ].join(" ")
+        ).slice(0, 500),
+        category_confidence: categoryResolution.confidence,
+        category_scores: categoryResolution.scores,
+        parser_version: "ikea-site-snapshot-v1",
+      }),
+    },
   };
 }

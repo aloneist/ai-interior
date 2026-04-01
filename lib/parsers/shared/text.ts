@@ -1,5 +1,12 @@
 import * as cheerio from "cheerio";
 
+type VisibleTextNode = {
+  type?: string;
+  data?: string;
+  name?: string;
+  children?: VisibleTextNode[];
+};
+
 export function decodeHtml(input: string): string {
   return input
     .replace(/&nbsp;/gi, " ")
@@ -60,7 +67,7 @@ export function htmlToVisibleText(html: string): string {
 
   const chunks: string[] = [];
 
-  function walk(node: any) {
+  function walk(node: VisibleTextNode | null | undefined) {
     if (!node) return;
 
     if (node.type === "text") {

@@ -2,18 +2,24 @@
 
 import { useState } from "react"
 
+type FurnitureCategory = "sofa" | "bed" | "chair" | "table" | "storage" | "decor"
+
 type AnalyzeResult = {
   success?: boolean
-  analysis?: Record<string, any>
+  analysis?: Record<string, unknown>
   error?: string
   message?: string
+}
+
+function isFurnitureCategory(value: string): value is FurnitureCategory {
+  return ["sofa", "bed", "chair", "table", "storage", "decor"].includes(value)
 }
 
 export default function AdminFurniture() {
   const [adminToken, setAdminToken] = useState("")
   const [name, setName] = useState("")
   const [brand, setBrand] = useState("")
-  const [category, setCategory] = useState<"sofa" | "bed" | "chair" | "table" | "storage" | "decor">("sofa")
+  const [category, setCategory] = useState<FurnitureCategory>("sofa")
   const [price, setPrice] = useState<number>(0)
   const [imageUrl, setImageUrl] = useState("")
 
@@ -53,8 +59,9 @@ export default function AdminFurniture() {
       }
 
       setResult(data)
-    } catch (e: any) {
-      setResult({ error: e?.message || "요청 실패" })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "요청 실패"
+      setResult({ error: message })
     } finally {
       setLoading(false)
     }
@@ -94,7 +101,12 @@ export default function AdminFurniture() {
             <select
               className="border rounded px-3 py-2 w-full"
               value={category}
-              onChange={(e) => setCategory(e.target.value as any)}
+              onChange={(e) => {
+                const nextCategory = e.target.value
+                if (isFurnitureCategory(nextCategory)) {
+                  setCategory(nextCategory)
+                }
+              }}
             >
               <option value="sofa">sofa</option>
               <option value="bed">bed</option>

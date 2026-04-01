@@ -271,7 +271,7 @@ const primaryLengthCandidates = collectDimensionCandidatesFromLines({
   labels: ["길이", "length"],
 });
 
-let length_cm = maxOrNull(primaryLengthCandidates);
+const length_cm = maxOrNull(primaryLengthCandidates);
 
 // 벤치처럼 "폭 / 길이 / 높이" 표기를 쓰는 chair 계열 fallback
 if (depth_cm == null && length_cm != null) {

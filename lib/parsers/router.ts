@@ -4,7 +4,7 @@ import { parseTableSnapshot } from "@/lib/parsers/categories/table";
 import { extractIkeaSnapshot } from "@/lib/parsers/sites/ikea";
 import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
 
-export function parseIkeaPayload(raw: any): ParsedFurnitureProduct {
+export function parseIkeaPayload(raw: unknown): ParsedFurnitureProduct {
   const snapshot = extractIkeaSnapshot(raw);
 
   if (snapshot.category_hint === "chair") {
@@ -18,7 +18,7 @@ export function parseIkeaPayload(raw: any): ParsedFurnitureProduct {
   return parseSofaSnapshot(snapshot);
 }
 
-export function compareIkeaParsers(raw: any) {
+export function compareIkeaParsers(raw: unknown) {
   const snapshot = extractIkeaSnapshot(raw);
 
   let v2: ParsedFurnitureProduct;

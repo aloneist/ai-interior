@@ -2,7 +2,6 @@ import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
 import type { RawProductSnapshot } from "@/lib/parsers/shared/snapshot";
 import {
   toCm,
-  makeLabelPattern,
   maxOrNull,
   normalizeJoinedDimensionLabels,
   collectLabeledDimensionCandidates,
@@ -92,64 +91,6 @@ function buildContextLine(lines: string[], index: number): string {
   const current = lines[index] ?? "";
   const next = lines[index + 1] ?? "";
   return `${prev} ${current} ${next}`.trim();
-}
-
-function collectFromLines(params: {
-  text: string;
-  labels: string[];
-  strongExclude?: string[];
-  weakExclude?: string[];
-  allowWeakFor?: string[];
-  hardExcludeIfContextHas?: string[];
-}): number[] {
-  const {
-    text,
-    labels,
-    strongExclude = STRONGLY_EXCLUDED_DIMENSION_CONTEXTS,
-    weakExclude = WEAKLY_EXCLUDED_DIMENSION_CONTEXTS,
-    allowWeakFor = [],
-    hardExcludeIfContextHas = [],
-  } = params;
-
-  const pattern = makeLabelPattern(labels);
-  const allowedWeakSet = new Set(allowWeakFor);
-
-  const lines = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const values: number[] = [];
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    const contextLine = buildContextLine(lines, i);
-
-    const match = line.match(pattern);
-    if (!match) continue;
-
-    const matchedLabel = match[1];
-    const rawValue = match[2];
-    const unit = match[3];
-
-    const hasStrong = strongExclude.some((kw) => contextLine.includes(kw));
-    if (hasStrong) continue;
-
-    if (hardExcludeIfContextHas.some((kw) => contextLine.includes(kw))) {
-      continue;
-    }
-
-    const shouldApplyWeak = !allowedWeakSet.has(matchedLabel);
-    const hasWeak = weakExclude.some((kw) => contextLine.includes(kw));
-    if (shouldApplyWeak && hasWeak) continue;
-
-    const value = Number(rawValue.replace(",", "."));
-    if (Number.isFinite(value)) {
-      values.push(toCm(value, unit));
-    }
-  }
-
-  return values;
 }
 
 function collectHeightCandidatesFromLines(params: {
@@ -338,9 +279,9 @@ function extractDimensions(sectionText: string | null): {
 
   const heightCandidates = extractHeightCandidatesFromLines(normalizedSectionText);
 
-let height_cm = heightCandidates.resolved_height_cm;
-let overall_height_cm = heightCandidates.overall_height_cm;
-let backrest_height_cm = heightCandidates.backrest_height_cm;
+const height_cm = heightCandidates.resolved_height_cm;
+const overall_height_cm = heightCandidates.overall_height_cm;
+const backrest_height_cm = heightCandidates.backrest_height_cm;
 
 if (width_cm == null || depth_cm == null || height_cm == null) {
   const compact = extractCompactDimensions(normalizedSectionText);

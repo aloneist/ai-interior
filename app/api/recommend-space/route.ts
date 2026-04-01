@@ -4,6 +4,43 @@ import { NextResponse } from "next/server"
 import { getOpenAIClient } from "@/lib/server/openai"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
+type FurnitureRecord = {
+  id: string
+  name: string | null
+  brand: string | null
+  category: string | null
+  price: number | null
+  image_url: string | null
+  product_key: string | null
+  created_at: string | null
+}
+
+type FurnitureVectorRow = {
+  brightness_compatibility: number | null
+  color_temperature_score: number | null
+  spatial_footprint_score: number | null
+  minimalism_score: number | null
+  contrast_score: number | null
+  colorfulness_score: number | null
+  furniture: FurnitureRecord
+}
+
+type ScoredFurniture = FurnitureRecord & {
+  recommendation_score: number
+}
+
+type ExplainReason = {
+  product_key: string
+  reason_short: string
+}
+
+function isExplainReason(value: unknown): value is ExplainReason {
+  if (typeof value !== "object" || value === null) return false
+
+  const candidate = value as Record<string, unknown>
+  return typeof candidate.product_key === "string" && typeof candidate.reason_short === "string"
+}
+
 function clamp01to100(v: number) {
   return Math.max(0, Math.min(100, Math.round(v)))
 }
@@ -93,7 +130,7 @@ export async function POST(req: Request) {
     if (vecErr) throw vecErr
 
     // 5) 점수 계산
-    const scored = vectors.map((item: any) => {
+    const scored = (vectors as FurnitureVectorRow[]).map((item) => {
       const d =
         weights.brightness * Math.abs((item.brightness_compatibility ?? 50) - brightness) +
         weights.temperature * Math.abs((item.color_temperature_score ?? 50) - temperature) +
@@ -111,11 +148,11 @@ export async function POST(req: Request) {
     })
 
     // 6) 정렬
-    scored.sort((a: any, b: any) => b.recommendation_score - a.recommendation_score)
+    scored.sort((a, b) => b.recommendation_score - a.recommendation_score)
 
     // 7) dedupe (product_key 우선)
     const seen = new Set<string>()
-    const deduped: any[] = []
+    const deduped: ScoredFurniture[] = []
 
     for (const item of scored) {
       const key =
@@ -186,7 +223,7 @@ Return format:
                 colorfulness: colorfulness >= 70 ? "컬러감 높음" : colorfulness <= 40 ? "컬러감 낮음" : "중간",
               }
             },
-            items: top3.map((x: any) => ({
+            items: top3.map((x) => ({
               product_key: x.product_key,
               name: x.name,
               category: x.category,
@@ -197,12 +234,18 @@ Return format:
       ],
     })
 
-    const explainJson = JSON.parse(explainRes.choices[0].message.content!)
+    const explainJson = JSON.parse(explainRes.choices[0].message.content!) as {
+      reasons?: unknown
+    }
     const reasonMap = new Map<string, string>(
-      (explainJson.reasons ?? []).map((r: any) => [r.product_key, r.reason_short])
+      Array.isArray(explainJson.reasons)
+        ? explainJson.reasons
+            .filter(isExplainReason)
+            .map((reason) => [reason.product_key, reason.reason_short] as const)
+        : []
     )
 
-    const sanitize = (s: any) => {
+    const sanitize = (s: unknown) => {
       if (typeof s !== "string") return null
       const t = s.replace(/\s+/g, " ").trim()
       // 너무 짧거나 끝이 어색하면 null 처리해서 fallback 사용
@@ -212,7 +255,7 @@ Return format:
       return t
     }
 
-    const top3WithReasons = top3.map((x: any) => {
+    const top3WithReasons = top3.map((x) => {
       const rawReason = reasonMap.get(x.product_key)
       const cleaned = sanitize(rawReason)
       return {

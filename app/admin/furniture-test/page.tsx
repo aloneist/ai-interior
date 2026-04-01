@@ -4,6 +4,38 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 type TestMode = "parser" | "import";
 
+type ParserMetadata = {
+  raw_dimension_text_preview?: string | null;
+  parser_version?: string | null;
+  diameter_cm?: number | null;
+  derived_width_from_diameter?: boolean;
+  derived_depth_from_diameter?: boolean;
+  [key: string]: unknown;
+};
+
+type SnapshotMetadata = {
+  debug?: ParserMetadata | null;
+  parser_version?: string | null;
+  [key: string]: unknown;
+};
+
+type ParserDebugInfo = {
+  raw_dimension_text_preview?: string | null;
+  parser_version?: string | null;
+  diameter_cm?: number | null;
+  derived_width_from_diameter?: boolean;
+  derived_depth_from_diameter?: boolean;
+  [key: string]: unknown;
+};
+
+type ImportResponseShape = {
+  import_job?: ImportJob | null;
+};
+
+type ExtractionNotesShape = {
+  parser_debug?: ParserDebugInfo | null;
+};
+
 type ImportJob = {
   id?: string | number;
   source_site?: string | null;
@@ -50,7 +82,7 @@ type ParserResponseShape = {
       width_cm?: number | null;
       depth_cm?: number | null;
       height_cm?: number | null;
-      metadata_json?: any;
+      metadata_json?: ParserMetadata;
     };
     snapshot?: {
       source_site?: string | null;
@@ -61,9 +93,9 @@ type ParserResponseShape = {
       description?: string | null;
       category_hint?: string | null;
       dimension_section_text?: string | null;
-      metadata_json?: any;
+      metadata_json?: SnapshotMetadata;
     };
-    diff?: any;
+    diff?: unknown;
     summary?: {
       product_name?: string | null;
       brand?: string | null;
@@ -77,7 +109,7 @@ type ParserResponseShape = {
       derived_width_from_diameter?: boolean;
       derived_depth_from_diameter?: boolean;
     };
-    parser_debug?: any;
+    parser_debug?: ParserDebugInfo | null;
     parser_notes?: string | null;
   };
 };
@@ -202,23 +234,45 @@ function compareNumberField(
 }
 
 function getExpectedMapFromStorage(): Record<string, ExpectedRecord> {
+  if (typeof window === "undefined") return {};
+
   try {
     const raw = window.localStorage.getItem(EXPECTED_STORAGE_KEY);
     if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object"
+      ? (parsed as Record<string, ExpectedRecord>)
+      : {};
   } catch {
     return {};
   }
 }
 
-function safeJsonParse(value?: string | null) {
+function safeJsonParse(value?: string | null): unknown {
   if (!value) return null;
   try {
     return JSON.parse(value);
   } catch {
     return null;
   }
+}
+
+function getStoredString(key: string) {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(key) || "";
+}
+
+function getStoredMode(): TestMode {
+  if (typeof window === "undefined") return "parser";
+  return window.localStorage.getItem(MODE_STORAGE_KEY) === "import"
+    ? "import"
+    : "parser";
+}
+
+function getParserDebugInfo(value: unknown): ParserDebugInfo | null {
+  return value && typeof value === "object"
+    ? (value as ParserDebugInfo)
+    : null;
 }
 
 function normalizeParserResult(
@@ -323,10 +377,17 @@ derived_depth_from_diameter:
   };
 }
 
-function normalizeImportResult(url: string, data: any): TestViewModel {
+function normalizeImportResult(
+  url: string,
+  data: ImportResponseShape
+): TestViewModel {
   const job: ImportJob | null = data?.import_job ?? null;
-  const parsedNotes = safeJsonParse(job?.extraction_notes);
-  const parserDebug = parsedNotes?.parser_debug ?? null;
+  const parsedNotes = safeJsonParse(job?.extraction_notes) as
+    | ExtractionNotesShape
+    | null;
+  const parserDebug = getParserDebugInfo(parsedNotes?.parser_debug);
+  const extractedImageUrls = job?.extracted_image_urls;
+  const extractedOptionSummaries = job?.extracted_option_summaries;
 
   return {
   name: job?.extracted_name ?? null,
@@ -367,11 +428,11 @@ function normalizeImportResult(url: string, data: any): TestViewModel {
   derived_depth_from_diameter:
     parserDebug?.derived_depth_from_diameter ?? false,
 
-  image_urls: Array.isArray(job?.extracted_image_urls)
-    ? job!.extracted_image_urls!.filter(Boolean)
+  image_urls: Array.isArray(extractedImageUrls)
+    ? extractedImageUrls.filter(Boolean)
     : [],
-  option_summaries: Array.isArray(job?.extracted_option_summaries)
-    ? job!.extracted_option_summaries!.filter(Boolean)
+  option_summaries: Array.isArray(extractedOptionSummaries)
+    ? extractedOptionSummaries.filter(Boolean)
     : [],
 
   parser_version: parserDebug?.parser_version ?? "-",
@@ -492,28 +553,15 @@ function getStatusTone(status: CompareStatus) {
 }
 
 export default function FurnitureTestPage() {
-  const [mode, setMode] = useState<TestMode>("parser");
-  const [token, setToken] = useState("");
-  const [urlsText, setUrlsText] = useState("");
+  const [mode, setMode] = useState<TestMode>(() => getStoredMode());
+  const [token, setToken] = useState(() => getStoredString(TOKEN_STORAGE_KEY));
+  const [urlsText, setUrlsText] = useState(() => getStoredString(URLS_STORAGE_KEY));
   const [expectedMap, setExpectedMap] = useState<Record<string, ExpectedRecord>>(
-    {}
+    () => getExpectedMapFromStorage()
   );
   const [isRunning, setIsRunning] = useState(false);
   const [results, setResults] = useState<RunResult[]>([]);
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const savedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY) || "";
-    const savedUrls = window.localStorage.getItem(URLS_STORAGE_KEY) || "";
-    const savedExpectedMap = getExpectedMapFromStorage();
-    const savedMode = (window.localStorage.getItem(MODE_STORAGE_KEY) ||
-      "parser") as TestMode;
-
-    setToken(savedToken);
-    setUrlsText(savedUrls);
-    setExpectedMap(savedExpectedMap);
-    setMode(savedMode === "import" ? "import" : "parser");
-  }, []);
 
   useEffect(() => {
     window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
@@ -620,12 +668,12 @@ export default function FurnitureTestPage() {
         raw: data,
         view,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         url,
         mode,
         ok: false,
-        error: error?.message || "Unknown error",
+        error: error instanceof Error ? error.message : "Unknown error",
       };
     }
   }

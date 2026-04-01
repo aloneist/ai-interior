@@ -3,6 +3,29 @@ export const runtime = "nodejs"
 import { NextResponse } from "next/server"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
+type RecommendationFurniture = {
+  product_key?: string | null
+  image_url?: string | null
+  brand?: string | null
+  name?: string | null
+  category?: string | null
+  [key: string]: unknown
+}
+
+type FurnitureVectorRow = {
+  brightness_compatibility: number
+  color_temperature_score: number
+  spatial_footprint_score: number
+  minimalism_score: number
+  contrast_score: number | null
+  colorfulness_score: number | null
+  furniture: RecommendationFurniture | null
+}
+
+type ScoredRecommendation = RecommendationFurniture & {
+  recommendation_score: number
+}
+
 export async function POST(req: Request) {
   try {
     const {
@@ -40,7 +63,8 @@ export async function POST(req: Request) {
 
     if (error) throw error
 
-    const scored = vectors.map((item: any) => {
+    const scored = ((vectors ?? []) as FurnitureVectorRow[]).map(
+      (item): ScoredRecommendation => {
       const d =
         weights.brightness * Math.abs(item.brightness_compatibility - brightness) +
         weights.temperature * Math.abs(item.color_temperature_score - temperature) +
@@ -52,38 +76,42 @@ export async function POST(req: Request) {
       const score = 100 - d
 
       return {
-        ...item.furniture,
+        ...(item.furniture ?? {}),
         recommendation_score: Math.round(score),
       }
-    })
+      }
+    )
 
     scored.sort((a, b) => b.recommendation_score - a.recommendation_score)
 
     // ✅ Step 3: dedupe (같은 제품 1개만 남기기)
-const seen = new Set<string>();
-const deduped: any[] = [];
+    const seen = new Set<string>()
+    const deduped: ScoredRecommendation[] = []
 
-for (const item of scored) {
-  // product_key가 있으면 최우선
-  const key =
-    item.product_key ||
-    item.image_url ||
-    `${(item.brand ?? "").toLowerCase()}|${(item.name ?? "").toLowerCase()}|${(item.category ?? "").toLowerCase()}`;
+    for (const item of scored) {
+      // product_key가 있으면 최우선
+      const key =
+        item.product_key ||
+        item.image_url ||
+        `${(item.brand ?? "").toLowerCase()}|${(item.name ?? "").toLowerCase()}|${(item.category ?? "").toLowerCase()}`
 
-  if (seen.has(key)) continue;
+      if (seen.has(key)) continue
 
-  seen.add(key);
-  deduped.push(item);
-}
+      seen.add(key)
+      deduped.push(item)
+    }
 
     return NextResponse.json({
       success: true,
       recommendations: deduped.slice(0, 10),
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(err)
+
+    const message = err instanceof Error ? err.message : "Recommendation failed"
+
     return NextResponse.json(
-      { error: "Recommendation failed", message: err.message },
+      { error: "Recommendation failed", message },
       { status: 500 }
     )
   }

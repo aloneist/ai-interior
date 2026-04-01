@@ -73,14 +73,16 @@ export async function POST(req: Request) {
       imageUrl: uploaded.secure_url,
       publicId: uploaded.public_id,
     })
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("UPLOAD IMAGE ERROR:", err)
+
+    const message = err instanceof Error ? err.message : "unknown upload error"
 
     return NextResponse.json(
       {
         success: false,
         error: "upload failed",
-        message: err?.message ?? "unknown upload error",
+        message,
       },
       { status: 500 }
     )

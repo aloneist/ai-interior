@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getOpenAIClient } from "@/lib/server/openai";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { parseIkeaPayload } from "@/lib/parsers";
+import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
 import {
   normalizeCategoryText,
   normalizeSubcategoryText,
@@ -49,6 +50,8 @@ type TaxonomySnapshot = {
   height_cm: number | null;
   diameter_cm: number | null;
 };
+
+type ParserResult = ParsedFurnitureProduct | null;
 
 function normalizeUrl(url: string) {
   try {
@@ -163,21 +166,8 @@ function normalizeCategory(value: string): string | null {
   return null;
 }
 
-function mergeImageUrls(
-  parserImageUrl: string | null | undefined,
-  aiImageUrls: unknown
-): string[] {
-  const aiUrls = toStringArray(aiImageUrls);
-  const merged = [
-    ...(parserImageUrl ? [parserImageUrl] : []),
-    ...aiUrls,
-  ].filter(Boolean);
-
-  return merged.filter((url, index, arr) => arr.indexOf(url) === index);
-}
-
 function buildExtractionNotes(params: {
-  parserResult: any | null;
+  parserResult: ParserResult;
   aiResult: EnrichedAiResult | null;
   taxonomy: TaxonomySnapshot;
 }) {
@@ -268,7 +258,7 @@ export async function POST(req: Request) {
       full_html: html,
     };
 
-    const parserResult =
+    const parserResult: ParserResult =
       sourceSite === "ikea" ? parseIkeaPayload(raw) : null;
 
     const aiRes = await openai.chat.completions.create({
@@ -402,11 +392,6 @@ Rules:
       diameter_cm: parserResult?.metadata_json?.diameter_cm ?? null,
     };
 
-    const mergedImageUrls = mergeImageUrls(
-      parserResult?.image_url,
-      enriched.extracted_color_options
-    );
-
     const importPayload = {
       source_site: sourceSite,
       source_url: normalizedUrl,
@@ -463,7 +448,7 @@ Rules:
       success: true,
       import_job: importJob,
     });
-    } catch (err: unknown) {
+  } catch (err: unknown) {
     console.error("IMPORT PRODUCT ERROR:", err);
 
     const message =

@@ -26,11 +26,14 @@ export default function RecommendationProductCard({
   return (
     <article className="flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-4">
       {product.image_url ? (
-        <img
-          src={product.image_url}
-          alt={product.name}
-          className="h-52 w-full rounded-xl border border-gray-200 object-cover"
-        />
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="h-52 w-full rounded-xl border border-gray-200 object-cover"
+          />
+        </>
       ) : (
         <div className="flex h-52 w-full items-center justify-center rounded-xl border border-gray-200 bg-gray-100 text-gray-500">
           이미지 없음

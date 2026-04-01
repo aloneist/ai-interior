@@ -218,7 +218,7 @@ function extractDimensions(sectionText: string | null): {
     labels: ["길이", "length"],
   });
 
-  let length_cm = maxOrNull(primaryLengthCandidates);
+  const length_cm = maxOrNull(primaryLengthCandidates);
 
   // 깊이가 없고 폭/길이만 있으면 table 규칙으로 보정
   if (depth_cm == null && width_cm != null && length_cm != null) {

@@ -4,13 +4,27 @@ import { NextResponse } from "next/server"
 import { getOpenAIClient } from "@/lib/server/openai"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
-function clampScore(v: any) {
+type AnalyzeSpaceRequest = {
+  imageUrl: string
+}
+
+type SpaceAnalysisResult = {
+  brightness_score?: unknown
+  color_temperature_score?: unknown
+  spatial_density_score?: unknown
+  minimalism_score?: unknown
+  contrast_score?: unknown
+  colorfulness_score?: unknown
+  dominant_color_hex?: unknown
+}
+
+function clampScore(v: unknown) {
   const n = Number(v)
   if (!Number.isFinite(n)) return 50
   return Math.max(0, Math.min(100, Math.round(n)))
 }
 
-function normalizeHex(hex: any) {
+function normalizeHex(hex: unknown) {
   if (typeof hex !== "string") return "#808080"
   const h = hex.trim().toUpperCase()
   return /^#[0-9A-F]{6}$/.test(h) ? h : "#808080"
@@ -18,7 +32,7 @@ function normalizeHex(hex: any) {
 
 export async function POST(req: Request) {
   try {
-    const { imageUrl } = await req.json()
+    const { imageUrl } = (await req.json()) as AnalyzeSpaceRequest
     const openai = getOpenAIClient()
     const supabase = getSupabaseAdminClient()
 
@@ -73,7 +87,7 @@ Rules:
     })
 
     const raw = response.choices[0].message.content!
-    const analysis = JSON.parse(raw)
+    const analysis: SpaceAnalysisResult = JSON.parse(raw)
 
     const normalized = {
       image_url: imageUrl,
@@ -95,7 +109,7 @@ Rules:
     if (error) throw error
 
     return NextResponse.json({ success: true, space, analysis: normalized })
-    } catch (err: unknown) {
+  } catch (err: unknown) {
     console.error("ANALYZE SPACE ERROR:", err)
 
     const message =

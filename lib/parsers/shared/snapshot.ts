@@ -1,3 +1,5 @@
+import type { ParserMetadata } from "@/lib/parsers/shared/types";
+
 export type RawProductSnapshot = {
   source_site: string;
   source_url: string | null;
@@ -11,5 +13,5 @@ export type RawProductSnapshot = {
   category_hint: string | null;
   dimension_section_text: string | null;
 
-  metadata_json: Record<string, any>;
+  metadata_json: ParserMetadata;
 };
