@@ -78,11 +78,11 @@ export function htmlToVisibleText(html: string): string {
 
     if (node.type === "tag") {
       const tag = node.name?.toLowerCase();
-      if (blockTags.has(tag)) chunks.push("\n");
+      if (tag && blockTags.has(tag)) chunks.push("\n");
       if (node.children?.length) {
         for (const child of node.children) walk(child);
       }
-      if (blockTags.has(tag)) chunks.push("\n");
+      if (tag && blockTags.has(tag)) chunks.push("\n");
     }
   }
 

@@ -22,7 +22,7 @@ type FurnitureVectorRow = {
   minimalism_score: number | null
   contrast_score: number | null
   colorfulness_score: number | null
-  furniture: FurnitureRecord
+  furniture: FurnitureRecord | FurnitureRecord[] | null
 }
 
 type ScoredFurniture = FurnitureRecord & {
@@ -32,6 +32,10 @@ type ScoredFurniture = FurnitureRecord & {
 type ExplainReason = {
   product_key: string
   reason_short: string
+}
+
+function isScoredFurniture(value: ScoredFurniture | null): value is ScoredFurniture {
+  return value !== null
 }
 
 function isExplainReason(value: unknown): value is ExplainReason {
@@ -130,7 +134,10 @@ export async function POST(req: Request) {
     if (vecErr) throw vecErr
 
     // 5) 점수 계산
-    const scored = (vectors as FurnitureVectorRow[]).map((item) => {
+    const scored = (vectors as FurnitureVectorRow[])
+      .map((item) => {
+      const furniture = Array.isArray(item.furniture) ? item.furniture[0] : item.furniture
+      if (!furniture) return null
       const d =
         weights.brightness * Math.abs((item.brightness_compatibility ?? 50) - brightness) +
         weights.temperature * Math.abs((item.color_temperature_score ?? 50) - temperature) +
@@ -142,10 +149,11 @@ export async function POST(req: Request) {
       const score = 100 - d
 
       return {
-        ...item.furniture,
+        ...furniture,
         recommendation_score: Math.round(score),
       }
     })
+      .filter(isScoredFurniture)
 
     // 6) 정렬
     scored.sort((a, b) => b.recommendation_score - a.recommendation_score)
@@ -256,7 +264,7 @@ Return format:
     }
 
     const top3WithReasons = top3.map((x) => {
-      const rawReason = reasonMap.get(x.product_key)
+      const rawReason = x.product_key ? reasonMap.get(x.product_key) : undefined
       const cleaned = sanitize(rawReason)
       return {
         ...x,

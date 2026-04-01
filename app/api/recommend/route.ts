@@ -19,7 +19,7 @@ type FurnitureVectorRow = {
   minimalism_score: number
   contrast_score: number | null
   colorfulness_score: number | null
-  furniture: RecommendationFurniture | null
+  furniture: RecommendationFurniture | RecommendationFurniture[] | null
 }
 
 type ScoredRecommendation = RecommendationFurniture & {
@@ -65,6 +65,7 @@ export async function POST(req: Request) {
 
     const scored = ((vectors ?? []) as FurnitureVectorRow[]).map(
       (item): ScoredRecommendation => {
+      const furniture = Array.isArray(item.furniture) ? item.furniture[0] : item.furniture
       const d =
         weights.brightness * Math.abs(item.brightness_compatibility - brightness) +
         weights.temperature * Math.abs(item.color_temperature_score - temperature) +
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
       const score = 100 - d
 
       return {
-        ...(item.furniture ?? {}),
+        ...(furniture ?? {}),
         recommendation_score: Math.round(score),
       }
       }
