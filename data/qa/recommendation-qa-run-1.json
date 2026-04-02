@@ -1,0 +1,303 @@
+{
+  "runId": "recommendation-qa-run-1",
+  "baselineVersion": "v1",
+  "runDate": "2026-04-02",
+  "reviewMode": "manual-review-first",
+  "executionMethod": {
+    "route": "/api/mvp",
+    "notes": [
+      "Each case was executed once against the current local system.",
+      "The baseline scenarios were mapped to the current MVP inputs: imageUrl, roomType, styles, budget, furniture, and requestText.",
+      "This run records observed output only. No product logic was changed."
+    ]
+  },
+  "summary": {
+    "casesReviewed": 7,
+    "passCount": 0,
+    "mixedCount": 5,
+    "failCount": 2,
+    "baselineUsabilityJudgment": "usable with minor refinement"
+  },
+  "cases": [
+    {
+      "caseId": "rec-qa-001",
+      "judgment": "mixed",
+      "mappedInput": {
+        "roomType": "living",
+        "styles": ["minimal", "bright"],
+        "budget": "medium",
+        "furniture": ["sofa", "table"],
+        "requestText": "좁은 원룸이라 답답하지 않고 가볍게 쓰고 싶어요"
+      },
+      "resultSummary": "The system stayed compact and avoided oversized items, but it did not surface a mixed-use studio anchor product.",
+      "topRecommendations": [
+        {
+          "name": "BOLLPOJKE 볼포이케",
+          "category": "table",
+          "price": 129000,
+          "score": 88
+        },
+        {
+          "name": "PERJOHAN 페리오한 수납벤치",
+          "category": "chair",
+          "price": 69900,
+          "score": 82
+        }
+      ],
+      "observedPositiveSignals": [
+        "The returned items were compact and did not look oversized for a small room.",
+        "The storage bench was directionally useful for a flexible small-space setup.",
+        "The grouped copy reflected the small-space request text."
+      ],
+      "observedFailureSignals": [
+        "No sofa or mixed-use anchor item appeared despite the studio living/sleeping use case.",
+        "The result set was effectively the same as several other cases.",
+        "The short reasons were generic and did not meaningfully address studio use."
+      ],
+      "reviewerNotes": "Usable for identifying small-space weakness, but not enough category variety to judge studio-quality well."
+    },
+    {
+      "caseId": "rec-qa-002",
+      "judgment": "fail",
+      "mappedInput": {
+        "roomType": "bedroom",
+        "styles": ["calm", "minimal"],
+        "budget": "medium",
+        "furniture": [],
+        "requestText": "차분하고 깔끔한 침실로 정돈하고 싶어요"
+      },
+      "resultSummary": "The output stayed calm and compact, but it did not produce bedroom-relevant product categories.",
+      "topRecommendations": [
+        {
+          "name": "BOLLPOJKE 볼포이케",
+          "category": "table",
+          "price": 129000,
+          "score": 86
+        },
+        {
+          "name": "PERJOHAN 페리오한 수납벤치",
+          "category": "chair",
+          "price": 69900,
+          "score": 80
+        }
+      ],
+      "observedPositiveSignals": [
+        "The returned items were visually calm and not obviously off-budget.",
+        "The grouped summary acknowledged bedroom and calm/minimal preferences."
+      ],
+      "observedFailureSignals": [
+        "No bed, nightstand, dresser, or bedroom-storage category appeared.",
+        "Room-context fit was weak because the products still read as generic table/chair picks.",
+        "The short explanations were generic and not bedroom-specific."
+      ],
+      "reviewerNotes": "This case exposes a major room-type relevance gap."
+    },
+    {
+      "caseId": "rec-qa-003",
+      "judgment": "fail",
+      "mappedInput": {
+        "roomType": "living",
+        "styles": ["modern"],
+        "budget": "medium",
+        "furniture": ["sofa"],
+        "requestText": "매일 쉬고 손님도 앉을 소파 중심 거실이 필요해요"
+      },
+      "resultSummary": "The system failed the sofa-centered living-room intent because no sofa was returned.",
+      "topRecommendations": [
+        {
+          "name": "BOLLPOJKE 볼포이케",
+          "category": "table",
+          "price": 129000,
+          "score": 90
+        },
+        {
+          "name": "PERJOHAN 페리오한 수납벤치",
+          "category": "chair",
+          "price": 69900,
+          "score": 88
+        }
+      ],
+      "observedPositiveSignals": [
+        "The system returned coherent low-clutter products instead of random categories.",
+        "The grouped copy did preserve the sofa-first wording from the request."
+      ],
+      "observedFailureSignals": [
+        "No sofa category appeared despite an explicit sofa-only furniture selection.",
+        "Category relevance was poor for a sofa-led living-room request.",
+        "The results were nearly identical to non-sofa cases."
+      ],
+      "reviewerNotes": "This is a strong indicator that current output coverage or category selection is not meeting a core MVP scenario."
+    },
+    {
+      "caseId": "rec-qa-004",
+      "judgment": "mixed",
+      "mappedInput": {
+        "roomType": "living",
+        "styles": ["minimal"],
+        "budget": "low",
+        "furniture": ["sofa"],
+        "requestText": "예산이 낮아서 가성비 위주로 맞추고 싶어요"
+      },
+      "resultSummary": "Budget fit was directionally reasonable, but the output still missed the requested sofa focus.",
+      "topRecommendations": [
+        {
+          "name": "BOLLPOJKE 볼포이케",
+          "category": "table",
+          "price": 129000,
+          "score": 92
+        },
+        {
+          "name": "PERJOHAN 페리오한 수납벤치",
+          "category": "chair",
+          "price": 69900,
+          "score": 86
+        }
+      ],
+      "observedPositiveSignals": [
+        "Both returned items stayed within a low-to-mid affordable range.",
+        "The budget group copy reflected the low-budget request.",
+        "The cheaper bench surfaced consistently in the budget grouping."
+      ],
+      "observedFailureSignals": [
+        "No sofa appeared despite the sofa request.",
+        "The budget-sensitive case did not materially diversify from the other cases.",
+        "The short reasons did not explicitly explain value or affordability."
+      ],
+      "reviewerNotes": "Budget handling shows some signal, but category fit remains too weak for a full pass."
+    },
+    {
+      "caseId": "rec-qa-005",
+      "judgment": "mixed",
+      "mappedInput": {
+        "roomType": "living",
+        "styles": ["modern", "minimal"],
+        "budget": "medium",
+        "furniture": ["sofa", "table"],
+        "requestText": "미니멀하고 깔끔한 느낌으로 맞추고 싶어요"
+      },
+      "resultSummary": "Style fit was directionally acceptable, but the output remained too repetitive and too narrow to demonstrate strong style control.",
+      "topRecommendations": [
+        {
+          "name": "BOLLPOJKE 볼포이케",
+          "category": "table",
+          "price": 129000,
+          "score": 91
+        },
+        {
+          "name": "PERJOHAN 페리오한 수납벤치",
+          "category": "chair",
+          "price": 69900,
+          "score": 85
+        }
+      ],
+      "observedPositiveSignals": [
+        "The returned products were visually compatible with a minimal/modern direction.",
+        "The grouped summary reflected the selected styles cleanly."
+      ],
+      "observedFailureSignals": [
+        "The exact same items appeared again with minimal differentiation.",
+        "The style-constrained case did not show a broader or more clearly curated set.",
+        "The short reasons stayed generic rather than style-grounded."
+      ],
+      "reviewerNotes": "The case is useful because it surfaces that style wording is present, but style discrimination is still shallow."
+    },
+    {
+      "caseId": "rec-qa-006",
+      "judgment": "mixed",
+      "mappedInput": {
+        "roomType": "living",
+        "styles": ["bright", "minimal"],
+        "budget": "medium",
+        "furniture": ["chair", "table"],
+        "requestText": "좁고 답답한 방이라 동선이 막히지 않게 가볍고 작은 가구가 필요해요"
+      },
+      "resultSummary": "The returned categories were directionally better for a tight room, but the output still lacked strong small-space differentiation.",
+      "topRecommendations": [
+        {
+          "name": "BOLLPOJKE 볼포이케",
+          "category": "table",
+          "price": 129000,
+          "score": 90
+        },
+        {
+          "name": "PERJOHAN 페리오한 수납벤치",
+          "category": "chair",
+          "price": 69900,
+          "score": 80
+        }
+      ],
+      "observedPositiveSignals": [
+        "A table and chair pairing is more plausible than bulky lounge furniture for a narrow room.",
+        "No oversized items appeared.",
+        "The grouped summary did preserve the circulation-focused request."
+      ],
+      "observedFailureSignals": [
+        "The output remained almost identical to the studio and style cases.",
+        "The short reasons did not explicitly address footprint, circulation, or narrow-room fit.",
+        "The system did not show stronger small-space prioritization than in the generic cases."
+      ],
+      "reviewerNotes": "This case is usable, but it mostly proves that the system avoids large products rather than actively reasoning about compact fit."
+    },
+    {
+      "caseId": "rec-qa-007",
+      "judgment": "mixed",
+      "mappedInput": {
+        "roomType": "bedroom",
+        "styles": ["calm"],
+        "budget": "medium",
+        "furniture": [],
+        "requestText": "수납이 가장 중요하고 방이 어수선해서 정리되는 가구가 필요해요"
+      },
+      "resultSummary": "The storage bench helped, but storage was not the primary outcome and the top recommendation remained a generic table.",
+      "topRecommendations": [
+        {
+          "name": "BOLLPOJKE 볼포이케",
+          "category": "table",
+          "price": 129000,
+          "score": 92
+        },
+        {
+          "name": "PERJOHAN 페리오한 수납벤치",
+          "category": "chair",
+          "price": 69900,
+          "score": 82
+        }
+      ],
+      "observedPositiveSignals": [
+        "The storage bench surfaced in the recommendation set.",
+        "One short reason explicitly mentioned storage."
+      ],
+      "observedFailureSignals": [
+        "The top recommendation was still a plain table rather than a storage-first item.",
+        "No dresser, shelf, cabinet, or bedroom-storage category appeared.",
+        "The result was still too close to the non-storage bedroom case."
+      ],
+      "reviewerNotes": "Storage is partially recognized, but not strongly enough to count as a pass."
+    }
+  ],
+  "commonStrengths": [
+    "All seven cases executed successfully and returned stable JSON responses.",
+    "The system consistently returned compact, low-clutter products rather than obviously oversized picks.",
+    "Budget-low behavior showed some directional sensitivity through lower-priced items and budget summary copy.",
+    "Grouped recommendation summaries preserved room type, budget, style, and request-text context."
+  ],
+  "commonFailurePatterns": [
+    "The same two products were returned across every case, which sharply limits differentiation.",
+    "Category relevance was weak for key intents such as bedroom furniture, sofa-first living rooms, and storage-first requests.",
+    "Room-type and style changes had limited visible effect on the actual product set.",
+    "Short explanations were often generic and only loosely grounded in the returned products.",
+    "Storage, mixed-use studio needs, and explicit sofa intent were under-served."
+  ],
+  "baselineUsabilityNotes": [
+    "Baseline v1 was usable for this first run because it exposed clear strengths and failures without requiring a scoring framework.",
+    "Minor refinement would help by adding an optional input-mapping field for the current MVP controls.",
+    "Some baseline intents exceed the current selectable furniture tags, so mapping notes reduce ambiguity without redesigning the baseline."
+  ],
+  "nextQualityPriorities": [
+    "Improve category and catalog coverage before tuning ranking details.",
+    "Strengthen room-type relevance so bedroom, living-room, and storage-led requests produce distinct product sets.",
+    "Increase request-text and constraint sensitivity for sofa intent, small-space intent, and storage intent.",
+    "Ground short explanations more tightly in actual product attributes and the active scenario.",
+    "Re-run the same baseline after any recommendation-data or routing improvement to measure differentiation."
+  ]
+}

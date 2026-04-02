@@ -1,0 +1,129 @@
+{
+  "version": "v1",
+  "title": "Recommendation QA Baseline",
+  "reviewType": "manual-review-first",
+  "overview": "Representative recommendation-quality cases for regression review. This file defines expectations only and does not change product behavior.",
+  "evaluationDimensions": [
+    "category relevance",
+    "room-context fit",
+    "budget fit",
+    "style fit",
+    "size/space plausibility",
+    "explanation plausibility",
+    "obvious failure conditions"
+  ],
+  "cases": [
+    {
+      "caseId": "rec-qa-001",
+      "scenario": "Small studio apartment where one room needs to function as both living and sleeping space, with only a small footprint available for furniture.",
+      "expectedUserIntent": "The user needs compact, multi-use, apartment-friendly pieces that do not overwhelm the room.",
+      "expectedPositiveSignals": [
+        "Results emphasize compact living essentials such as small sofas, loveseat-scale seating, narrow tables, or dual-purpose items.",
+        "Recommendations avoid suggesting a full oversized furniture set that would dominate a studio layout.",
+        "Explanations mention small-space practicality, compact scale, or multi-function usefulness."
+      ],
+      "expectedFailureSignals": [
+        "Large sectional sofas, oversized media units, or bulky multi-piece sets dominate the top results.",
+        "Results read like a standard living-room package without acknowledging the mixed-use studio constraint.",
+        "Explanations ignore space limitations entirely."
+      ],
+      "reviewNotes": ""
+    },
+    {
+      "caseId": "rec-qa-002",
+      "scenario": "Bedroom-focused request for a calm, comfortable setup centered on sleep and basic bedroom function.",
+      "expectedUserIntent": "The user wants bedroom-appropriate furniture and decor support, not general living-room recommendations.",
+      "expectedPositiveSignals": [
+        "Top results include clearly bedroom-relevant categories such as bed frames, nightstands, dressers, or bedroom storage.",
+        "The mix supports rest, comfort, and bedroom use rather than entertaining or dining.",
+        "Explanations connect the recommendations to a bedroom context."
+      ],
+      "expectedFailureSignals": [
+        "Living-room-only products such as coffee tables or TV stands dominate the output.",
+        "Results look category-confused or split across unrelated rooms.",
+        "Explanations use generic room language without reflecting a bedroom request."
+      ],
+      "reviewNotes": ""
+    },
+    {
+      "caseId": "rec-qa-003",
+      "scenario": "Living room request centered on finding a sofa-first setup for everyday lounging and guest seating.",
+      "expectedUserIntent": "The user primarily wants seating-led living-room recommendations with the sofa as the anchor product.",
+      "expectedPositiveSignals": [
+        "Sofa or couch options appear prominently in the leading results.",
+        "Supporting items, if present, feel adjacent to a sofa-centered living-room setup.",
+        "Explanations reflect comfort, seating use, and living-room function."
+      ],
+      "expectedFailureSignals": [
+        "Non-seating categories outrank sofas without a clear reason.",
+        "Results feel scattered across unrelated furniture types.",
+        "The output does not establish a clear anchor piece for the living room."
+      ],
+      "reviewNotes": ""
+    },
+    {
+      "caseId": "rec-qa-004",
+      "scenario": "Budget-sensitive request from a user who needs a practical room setup while staying firmly in a lower price range.",
+      "expectedUserIntent": "The user wants affordable options and would rather trade premium styling for value and utility.",
+      "expectedPositiveSignals": [
+        "The overall result set skews toward lower-cost or value-oriented items relative to the catalog.",
+        "Recommendations do not cluster around premium or obviously expensive options.",
+        "Explanations mention affordability, budget awareness, or practical value."
+      ],
+      "expectedFailureSignals": [
+        "Top results include obviously premium, designer-looking, or expensive items despite the budget signal.",
+        "The set mixes one cheap item with several high-cost suggestions that break the overall budget intent.",
+        "Explanations sound aspirational or luxury-oriented instead of cost-aware."
+      ],
+      "reviewNotes": ""
+    },
+    {
+      "caseId": "rec-qa-005",
+      "scenario": "Style-constrained request for a modern minimalist room with clean lines and reduced visual clutter.",
+      "expectedUserIntent": "The user wants recommendations that align with a clear style direction, not just generic furniture matches.",
+      "expectedPositiveSignals": [
+        "Results show a visually coherent modern or minimalist direction.",
+        "Suggested pieces avoid heavy ornamentation, overly traditional forms, or mixed-style clutter.",
+        "Explanations reference clean lines, simplicity, or visual restraint in a plausible way."
+      ],
+      "expectedFailureSignals": [
+        "Top results mix conflicting styles such as ornate traditional pieces with minimalist items.",
+        "The set feels stylistically random or inconsistent.",
+        "Explanations claim a modern minimalist fit for products that visibly do not match that style."
+      ],
+      "reviewNotes": ""
+    },
+    {
+      "caseId": "rec-qa-006",
+      "scenario": "Small-space constraint where the user explicitly needs furniture that can fit in a narrow room with limited circulation space.",
+      "expectedUserIntent": "The user wants space-efficient products that are plausible for tight layouts and everyday movement.",
+      "expectedPositiveSignals": [
+        "Results emphasize narrow, compact, or apartment-scale pieces.",
+        "The set leaves room for movement and does not assume a large footprint.",
+        "Explanations mention fit, scale, or circulation in a believable way."
+      ],
+      "expectedFailureSignals": [
+        "Bulky, deep, or extra-wide items dominate the output.",
+        "The recommendations would likely block circulation in a narrow room.",
+        "Explanations talk about spacious layouts or statement scale despite the constraint."
+      ],
+      "reviewNotes": ""
+    },
+    {
+      "caseId": "rec-qa-007",
+      "scenario": "Storage-priority case where the room feels cluttered and the user needs furniture that improves organization first.",
+      "expectedUserIntent": "The user values hidden or visible storage capacity and wants recommendations that help the room function better.",
+      "expectedPositiveSignals": [
+        "Storage-capable categories such as dressers, shelving, storage beds, benches, or cabinets appear where appropriate.",
+        "The result set reflects organization utility rather than style alone.",
+        "Explanations plausibly mention decluttering, organization, or storage function."
+      ],
+      "expectedFailureSignals": [
+        "Purely decorative items dominate while storage needs are ignored.",
+        "Results include attractive but impractical pieces with no meaningful storage value.",
+        "Explanations mention storage benefits that the products do not appear to provide."
+      ],
+      "reviewNotes": ""
+    }
+  ]
+}
