@@ -1,0 +1,410 @@
+{
+  "runId": "recommendation-qa-run-2",
+  "baselineVersion": "v1",
+  "runDate": "2026-04-02",
+  "comparisonReference": "data/qa/recommendation-qa-run-1.json",
+  "reviewMode": "manual-review-first",
+  "executionMethod": {
+    "type": "catalog-rerun-with-saved-case-inputs",
+    "notes": [
+      "Run 1 did not preserve the original imageUrl values or room-analysis outputs.",
+      "Run 2 reused the saved case preference inputs from recommendation-qa-run-1.json.",
+      "Run 2 used stable room-feature proxy values per baseline case to keep refreshed-catalog comparison practical and repeatable.",
+      "This run is evaluation only and does not change product behavior."
+    ]
+  },
+  "summary": {
+    "casesReviewed": 7,
+    "passCount": 1,
+    "mixedCount": 5,
+    "failCount": 1,
+    "qualityChangeVsRun1": "improved"
+  },
+  "comparisonSummary": {
+    "repeatedOutputReduced": true,
+    "sofaCenteredRelevanceImproved": true,
+    "bedroomRelevanceImproved": false,
+    "categoryDiversityImproved": true,
+    "smallSpacePlausibilityImproved": true,
+    "previousFailImprovedToPass": [
+      "rec-qa-003"
+    ]
+  },
+  "cases": [
+    {
+      "caseId": "rec-qa-001",
+      "proxyInputs": {
+        "brightness": 55,
+        "temperature": 55,
+        "footprint": 20,
+        "minimalism": 60,
+        "contrast": 50,
+        "colorfulness": 40
+      },
+      "mappedInput": {
+        "roomType": "living",
+        "styles": ["minimal", "bright"],
+        "budget": "medium",
+        "furniture": ["sofa", "table"],
+        "requestText": "좁은 원룸이라 답답하지 않고 가볍게 쓰고 싶어요"
+      },
+      "judgment": "mixed",
+      "resultSummary": "The top results now include compact sofas and small tables instead of a repeated table-plus-bench pair.",
+      "topResults": [
+        {
+          "name": "JÄTTEBO 예테보 1인용 모듈+수납, 삼살라 다크블루",
+          "category": "sofa",
+          "price": 390000,
+          "score": 139
+        },
+        {
+          "name": "GLOSTAD 글로스타드 2인용소파",
+          "category": "sofa",
+          "price": 140000,
+          "score": 134
+        },
+        {
+          "name": "SÖDERHAMN 쇠데르함 코너섹션, 토네루드 레드",
+          "category": "sofa",
+          "price": 400000,
+          "score": 133
+        }
+      ],
+      "observedPositiveSignals": [
+        "Compact sofas now appear at the top.",
+        "The result set is more plausible for a studio-like mixed-use room.",
+        "Repeated-output behavior is clearly reduced versus run 1."
+      ],
+      "observedFailureSignals": [
+        "The set is still sofa-heavy rather than a fuller mixed-use room solution.",
+        "No explicit sleep-oriented or transformable-room reasoning is visible."
+      ],
+      "reviewerNotes": "Improved versus run 1, but still not a full pass because the solution remains narrow.",
+      "comparisonVsRun1": "Improved from repetitive table/chair output to compact sofa-led output with better anchor-item relevance."
+    },
+    {
+      "caseId": "rec-qa-002",
+      "proxyInputs": {
+        "brightness": 40,
+        "temperature": 60,
+        "footprint": 35,
+        "minimalism": 55,
+        "contrast": 35,
+        "colorfulness": 25
+      },
+      "mappedInput": {
+        "roomType": "bedroom",
+        "styles": ["calm", "minimal"],
+        "budget": "medium",
+        "furniture": [],
+        "requestText": "차분하고 깔끔한 침실로 정돈하고 싶어요"
+      },
+      "judgment": "fail",
+      "resultSummary": "The refreshed catalog surfaces different items, but the bedroom-focused case still lacks bedroom-specific categories.",
+      "topResults": [
+        {
+          "name": "MÖRBYLÅNGA 뫼르뷜롱아 벤치, 참나무무늬목/브라운스테인, 180 cm  - IKEA",
+          "category": "chair",
+          "price": 314000,
+          "score": 120
+        },
+        {
+          "name": "EKENÄSET 에케네세트 암체어, 욘스뷘 블랙  - IKEA",
+          "category": "chair",
+          "price": 249000,
+          "score": 119
+        },
+        {
+          "name": "NÄMMARÖ 넴마뢰 수납상자, 라이트 스테인 브라운 실내/실외용, 80x40x45 cm  - IKEA",
+          "category": "chair",
+          "price": 99900,
+          "score": 113
+        }
+      ],
+      "observedPositiveSignals": [
+        "Output variety improved relative to run 1.",
+        "The set remains moderate in scale and does not drift into clearly oversized products."
+      ],
+      "observedFailureSignals": [
+        "No bed, nightstand, dresser, or bedroom-storage category appears.",
+        "Room-type relevance is still weak.",
+        "The top set still reads as generic furniture rather than a bedroom solution."
+      ],
+      "reviewerNotes": "No meaningful quality recovery for bedroom intent.",
+      "comparisonVsRun1": "Minor variety improvement only; core bedroom relevance did not improve."
+    },
+    {
+      "caseId": "rec-qa-003",
+      "proxyInputs": {
+        "brightness": 55,
+        "temperature": 55,
+        "footprint": 90,
+        "minimalism": 50,
+        "contrast": 50,
+        "colorfulness": 45
+      },
+      "mappedInput": {
+        "roomType": "living",
+        "styles": ["modern"],
+        "budget": "medium",
+        "furniture": ["sofa"],
+        "requestText": "매일 쉬고 손님도 앉을 소파 중심 거실이 필요해요"
+      },
+      "judgment": "pass",
+      "resultSummary": "The sofa-centered living-room case now returns only sofas in the top 10, fixing the clearest run 1 miss.",
+      "topResults": [
+        {
+          "name": "SÖDERHAMN 쇠데르함 코너섹션, 토네루드 레드",
+          "category": "sofa",
+          "price": 400000,
+          "score": 137
+        },
+        {
+          "name": "GLOSTAD 글로스타드 2인용소파",
+          "category": "sofa",
+          "price": 140000,
+          "score": 136
+        },
+        {
+          "name": "JÄTTEBO 예테보 1인용 모듈+수납, 삼살라 다크블루",
+          "category": "sofa",
+          "price": 390000,
+          "score": 131
+        }
+      ],
+      "observedPositiveSignals": [
+        "Sofa-only category dominance in the top 10.",
+        "Strong anchor-item relevance for a sofa-led living room.",
+        "Clear recovery from the run 1 fail state."
+      ],
+      "observedFailureSignals": [
+        "Sofa size and style variety are still imperfect.",
+        "One or two top options remain more compact or sectional-specific than ideal."
+      ],
+      "reviewerNotes": "This is the strongest quality improvement in run 2.",
+      "comparisonVsRun1": "Improved from fail to pass, with direct recovery of sofa-centered relevance."
+    },
+    {
+      "caseId": "rec-qa-004",
+      "proxyInputs": {
+        "brightness": 70,
+        "temperature": 70,
+        "footprint": 25,
+        "minimalism": 65,
+        "contrast": 50,
+        "colorfulness": 30
+      },
+      "mappedInput": {
+        "roomType": "living",
+        "styles": ["minimal"],
+        "budget": "low",
+        "furniture": ["sofa"],
+        "requestText": "예산이 낮아서 가성비 위주로 맞추고 싶어요"
+      },
+      "judgment": "mixed",
+      "resultSummary": "The budget-sensitive case now surfaces an affordable sofa first, which is a real improvement, but the broader set is still uneven.",
+      "topResults": [
+        {
+          "name": "GLOSTAD 글로스타드 2인용소파",
+          "category": "sofa",
+          "price": 140000,
+          "score": 128
+        },
+        {
+          "name": "JÄTTEBO 예테보 1인용 모듈+수납, 삼살라 다크블루",
+          "category": "sofa",
+          "price": 390000,
+          "score": 111
+        },
+        {
+          "name": "NÄMMARÖ 넴마뢰 수납상자, 라이트 스테인 브라운 실내/실외용, 80x40x45 cm  - IKEA",
+          "category": "chair",
+          "price": 99900,
+          "score": 110
+        }
+      ],
+      "observedPositiveSignals": [
+        "An affordable sofa now ranks first.",
+        "Low-budget compatibility is more visible than in run 1.",
+        "Candidate diversity is improved."
+      ],
+      "observedFailureSignals": [
+        "The rest of the set still mixes in items that do not form a clean budget-first bundle.",
+        "The second-ranked sofa is less budget-friendly."
+      ],
+      "reviewerNotes": "Better than run 1, but not consistent enough for a pass.",
+      "comparisonVsRun1": "Improved from a non-sofa budget set to a sofa-first budget-leaning set."
+    },
+    {
+      "caseId": "rec-qa-005",
+      "proxyInputs": {
+        "brightness": 72,
+        "temperature": 55,
+        "footprint": 25,
+        "minimalism": 80,
+        "contrast": 45,
+        "colorfulness": 20
+      },
+      "mappedInput": {
+        "roomType": "living",
+        "styles": ["modern", "minimal"],
+        "budget": "medium",
+        "furniture": ["sofa", "table"],
+        "requestText": "미니멀하고 깔끔한 느낌으로 맞추고 싶어요"
+      },
+      "judgment": "mixed",
+      "resultSummary": "The style-constrained case now shows more differentiated output, but style fit is still only partial.",
+      "topResults": [
+        {
+          "name": "JÄTTEBO 예테보 1인용 모듈+수납, 삼살라 다크블루",
+          "category": "sofa",
+          "price": 390000,
+          "score": 133
+        },
+        {
+          "name": "BOLLPOJKE 볼포이케 책상, 소나무/화이트, 90x55 cm  - IKEA",
+          "category": "table",
+          "price": 129000,
+          "score": 131
+        },
+        {
+          "name": "GLOSTAD 글로스타드 2인용소파",
+          "category": "sofa",
+          "price": 140000,
+          "score": 128
+        }
+      ],
+      "observedPositiveSignals": [
+        "The set is less repetitive than run 1.",
+        "Several products are still directionally compatible with a modern/minimal brief.",
+        "Sofa presence improved relative to run 1."
+      ],
+      "observedFailureSignals": [
+        "Style coherence is still not strong enough to read as a clearly curated modern minimalist room.",
+        "Category mix is broader, but not strongly style-expressive."
+      ],
+      "reviewerNotes": "Improved diversity, limited semantic style control.",
+      "comparisonVsRun1": "Improved modestly through better variety and stronger sofa presence, but still mixed."
+    },
+    {
+      "caseId": "rec-qa-006",
+      "proxyInputs": {
+        "brightness": 60,
+        "temperature": 55,
+        "footprint": 10,
+        "minimalism": 65,
+        "contrast": 50,
+        "colorfulness": 35
+      },
+      "mappedInput": {
+        "roomType": "living",
+        "styles": ["bright", "minimal"],
+        "budget": "medium",
+        "furniture": ["chair", "table"],
+        "requestText": "좁고 답답한 방이라 동선이 막히지 않게 가볍고 작은 가구가 필요해요"
+      },
+      "judgment": "mixed",
+      "resultSummary": "The constrained-space case now favors smaller chairs and tables with more variety, but still leans too heavily on standalone small items.",
+      "topResults": [
+        {
+          "name": "NÄMMARÖ 넴마뢰 수납상자, 라이트 스테인 브라운 실내/실외용, 80x40x45 cm  - IKEA",
+          "category": "chair",
+          "price": 99900,
+          "score": 135
+        },
+        {
+          "name": "BOLLPOJKE 볼포이케 책상, 소나무/화이트, 90x55 cm  - IKEA",
+          "category": "table",
+          "price": 129000,
+          "score": 132
+        },
+        {
+          "name": "LOBERGET 로베리에트 / SIBBEN 시벤 어린이용 책상 의자+패드, 화이트/다크그레이  - IKEA",
+          "category": "chair",
+          "price": 35000,
+          "score": 130
+        }
+      ],
+      "observedPositiveSignals": [
+        "Small-space plausibility remains strong.",
+        "The output is more varied than run 1.",
+        "The set better reflects compact circulation constraints."
+      ],
+      "observedFailureSignals": [
+        "The room solution still feels fragmented.",
+        "Several top items are small, but not necessarily the best overall room anchors."
+      ],
+      "reviewerNotes": "Improvement is real but still partial.",
+      "comparisonVsRun1": "Improved on diversity and small-space plausibility, though still not a full room-composition win."
+    },
+    {
+      "caseId": "rec-qa-007",
+      "proxyInputs": {
+        "brightness": 55,
+        "temperature": 55,
+        "footprint": 45,
+        "minimalism": 55,
+        "contrast": 50,
+        "colorfulness": 40
+      },
+      "mappedInput": {
+        "roomType": "bedroom",
+        "styles": ["calm"],
+        "budget": "medium",
+        "furniture": [],
+        "requestText": "수납이 가장 중요하고 방이 어수선해서 정리되는 가구가 필요해요"
+      },
+      "judgment": "mixed",
+      "resultSummary": "The storage-priority case now starts with a storage-capable sofa and shows somewhat broader practical options.",
+      "topResults": [
+        {
+          "name": "JÄTTEBO 예테보 1인용 모듈+수납, 삼살라 다크블루",
+          "category": "sofa",
+          "price": 390000,
+          "score": 108
+        },
+        {
+          "name": "MÖRBYLÅNGA 뫼르뷜롱아 벤치, 참나무무늬목/브라운스테인, 180 cm  - IKEA",
+          "category": "chair",
+          "price": 314000,
+          "score": 105
+        },
+        {
+          "name": "GLOSTAD 글로스타드 2인용소파",
+          "category": "sofa",
+          "price": 140000,
+          "score": 103
+        }
+      ],
+      "observedPositiveSignals": [
+        "A storage-capable sofa ranks first.",
+        "Output diversity is better than run 1.",
+        "Storage utility is more visible in the leading set."
+      ],
+      "observedFailureSignals": [
+        "Storage is still not the dominant theme across the full result set.",
+        "Explicit storage-specific categories remain limited."
+      ],
+      "reviewerNotes": "Improved, but still too weak for a pass.",
+      "comparisonVsRun1": "Improved from generic table-first output to a more storage-adjacent leading set."
+    }
+  ],
+  "commonStrengths": [
+    "Repeated output was reduced substantially versus run 1.",
+    "Sofa-centered relevance improved the most.",
+    "Candidate diversity improved across studio, budget, style, and small-space cases.",
+    "The refreshed catalog produces more plausible anchor items in several cases."
+  ],
+  "commonFailurePatterns": [
+    "Bedroom relevance is still weak.",
+    "Storage priority is still only partially expressed.",
+    "Several cases still produce narrow or fragmented room solutions.",
+    "Style fit remains coarse rather than clearly semantic."
+  ],
+  "nextQualityPriorities": [
+    "Improve bedroom and storage-specific category targeting.",
+    "Improve room-solution composition so small-space and studio outputs do not collapse into loose item mixes.",
+    "Preserve the improved sofa coverage while tightening style and storage semantics.",
+    "Re-run this same baseline again after the next recommendation or catalog iteration to verify that the gains hold."
+  ]
+}
