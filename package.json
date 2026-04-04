@@ -9,7 +9,9 @@
     "dev": "node scripts/bootstrap-env.mjs && next dev",
     "build": "next build",
     "start": "next start",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint",
+    "automation:smoke": "node automation/demo/run-smoke-test.cjs",
     "reset": "rm -rf node_modules .next package-lock.json && npm install",
     "dev:reset": "rm -rf node_modules .next package-lock.json && npm install && next dev"
   },
@@ -31,6 +33,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "tsconfig-paths": "^3.15.0",
     "typescript": "^5"
   }
-} 
+}
