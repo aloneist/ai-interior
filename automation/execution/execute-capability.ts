@@ -6,7 +6,7 @@ import type {
 } from "@/automation/capabilities/types"
 import { getCapabilityDefinition } from "@/automation/capabilities/registry"
 import { buildN8nApprovalHandoff } from "@/automation/orchestration/n8n/approval-handoff"
-import { sendN8nWebhookPlaceholder } from "@/automation/orchestration/n8n/webhook-placeholder-sender"
+import { sendN8nWebhookDelivery } from "@/automation/orchestration/n8n/webhook-placeholder-sender"
 import { resolveReadyProvidersByCapability } from "@/automation/providers"
 import type { ProviderId } from "@/automation/providers"
 import type {
@@ -127,6 +127,276 @@ function buildExecutionDecisionEnvelope<TCapabilityId extends CapabilityId>(
   }
 }
 
+function buildExecutionStateSnapshot<TCapabilityId extends CapabilityId>(
+  request: CapabilityRequest<TCapabilityId>,
+  report: CapabilityExecutionResult<TCapabilityId>["report"],
+  reviewSummary: CapabilityExecutionResult<TCapabilityId>["reviewSummary"],
+  decisionEnvelope?: CapabilityExecutionResult<TCapabilityId>["decisionEnvelope"]
+): CapabilityExecutionResult<TCapabilityId>["stateSnapshot"] {
+  return {
+    snapshotId: `snapshot-${report.reportId}`,
+    generatedAt: report.generatedAt,
+    requestId: report.requestId,
+    capabilityId: report.capabilityId,
+    operation: report.operation,
+    actorId: request.actorId,
+    executionMode: report.executionMode,
+    finalStatus: report.finalStatus,
+    approvalLifecycleState: report.approvalState,
+    reviewStatus: reviewSummary.reviewStatus,
+    decisionState: decisionEnvelope?.decision,
+    reportId: report.reportId,
+    auditEventId: report.auditEventId,
+  }
+}
+
+function buildExecutionContractBundle<TCapabilityId extends CapabilityId>(
+  selection: CapabilityExecutionResult<TCapabilityId>["selection"],
+  audit: CapabilityExecutionResult<TCapabilityId>["audit"],
+  report: CapabilityExecutionResult<TCapabilityId>["report"],
+  reviewSummary: CapabilityExecutionResult<TCapabilityId>["reviewSummary"],
+  stateSnapshot: CapabilityExecutionResult<TCapabilityId>["stateSnapshot"],
+  decisionEnvelope?: CapabilityExecutionResult<TCapabilityId>["decisionEnvelope"]
+): CapabilityExecutionResult<TCapabilityId>["contractBundle"] {
+  return {
+    bundleId: `bundle-${report.reportId}`,
+    generatedAt: report.generatedAt,
+    requestId: report.requestId,
+    capabilityId: report.capabilityId,
+    executionMode: selection.executionMode,
+    finalStatus: report.finalStatus,
+    audit,
+    report,
+    reviewSummary,
+    decisionEnvelope,
+    stateSnapshot,
+  }
+}
+
+function buildExecutionExportEnvelope<TCapabilityId extends CapabilityId>(
+  contractBundle: CapabilityExecutionResult<TCapabilityId>["contractBundle"]
+): CapabilityExecutionResult<TCapabilityId>["exportEnvelope"] {
+  return {
+    envelopeId: `export-${contractBundle.bundleId}`,
+    generatedAt: contractBundle.generatedAt,
+    exportTarget: "external_handoff",
+    requestId: contractBundle.requestId,
+    capabilityId: contractBundle.capabilityId,
+    executionMode: contractBundle.executionMode,
+    finalStatus: contractBundle.finalStatus,
+    approvalState: contractBundle.stateSnapshot.approvalLifecycleState,
+    reviewStatus: contractBundle.stateSnapshot.reviewStatus,
+    reportId: contractBundle.report.reportId,
+    auditEventId: contractBundle.audit.eventId,
+    bundle: contractBundle,
+  }
+}
+
+function buildExecutionExportSerializer<TCapabilityId extends CapabilityId>(
+  exportEnvelope: CapabilityExecutionResult<TCapabilityId>["exportEnvelope"]
+): CapabilityExecutionResult<TCapabilityId>["exportSerializer"] {
+  const payloadObject = {
+    envelopeId: exportEnvelope.envelopeId,
+    exportTarget: exportEnvelope.exportTarget,
+    requestId: exportEnvelope.requestId,
+    capabilityId: exportEnvelope.capabilityId,
+    executionMode: exportEnvelope.executionMode,
+    finalStatus: exportEnvelope.finalStatus,
+    approvalState: exportEnvelope.approvalState,
+    reviewStatus: exportEnvelope.reviewStatus,
+    reportId: exportEnvelope.reportId,
+    auditEventId: exportEnvelope.auditEventId,
+    bundle: exportEnvelope.bundle,
+  }
+
+  return {
+    serializerVersion: "v1",
+    serializedAt: exportEnvelope.generatedAt,
+    contentType: "application/json",
+    envelopeId: exportEnvelope.envelopeId,
+    exportTarget: exportEnvelope.exportTarget,
+    succeeded: true,
+    payloadObject,
+    payloadJson: JSON.stringify(payloadObject),
+  }
+}
+
+function buildExecutionTransportReceipt<TCapabilityId extends CapabilityId>(
+  exportSerializer: CapabilityExecutionResult<TCapabilityId>["exportSerializer"],
+  senderResult?: CapabilityResult<TCapabilityId>["approval"] extends
+    | { senderResult?: infer TSenderResult }
+    | undefined
+    ? TSenderResult
+    : never
+): CapabilityExecutionResult<TCapabilityId>["transportReceipt"] {
+  if (!senderResult) {
+    return undefined
+  }
+
+  return {
+    receiptId: `receipt-${exportSerializer.envelopeId}`,
+    issuedAt: exportSerializer.serializedAt,
+    envelopeId: exportSerializer.envelopeId,
+    exportTarget: exportSerializer.exportTarget,
+    contentType: exportSerializer.contentType,
+    attempted: senderResult.attempted,
+    delivered: senderResult.delivered,
+    deliveryMode: senderResult.deliveryMode,
+    status: senderResult.status,
+    reason: senderResult.reason,
+    payloadByteLength:
+      senderResult.payloadByteLength ??
+      Buffer.byteLength(exportSerializer.payloadJson, "utf8"),
+    httpStatus: senderResult.httpStatus,
+  }
+}
+
+function buildExecutionHandoffSummary<TCapabilityId extends CapabilityId>(
+  exportEnvelope: CapabilityExecutionResult<TCapabilityId>["exportEnvelope"],
+  exportSerializer: CapabilityExecutionResult<TCapabilityId>["exportSerializer"],
+  transportReceipt?: CapabilityExecutionResult<TCapabilityId>["transportReceipt"]
+): CapabilityExecutionResult<TCapabilityId>["handoffSummary"] {
+  let handoffStatus: CapabilityExecutionResult<TCapabilityId>["handoffSummary"]["handoffStatus"] =
+    "not_applicable"
+
+  if (transportReceipt) {
+    if (transportReceipt.delivered) {
+      handoffStatus = "sent"
+    } else if (transportReceipt.attempted) {
+      handoffStatus = "needs_attention"
+    } else if (transportReceipt.status === "not_configured") {
+      handoffStatus = "prepared"
+    } else {
+      handoffStatus = "attempted_not_sent"
+    }
+  }
+
+  return {
+    handoffSummaryId: `handoff-${exportEnvelope.envelopeId}`,
+    generatedAt: exportSerializer.serializedAt,
+    requestId: exportEnvelope.requestId,
+    capabilityId: exportEnvelope.capabilityId,
+    exportTarget: exportEnvelope.exportTarget,
+    handoffStatus,
+    deliveryMode: transportReceipt?.deliveryMode,
+    attempted: transportReceipt?.attempted ?? false,
+    delivered: transportReceipt?.delivered ?? false,
+    payloadByteLength: transportReceipt?.payloadByteLength,
+    reason: transportReceipt?.reason,
+    envelopeId: exportEnvelope.envelopeId,
+    receiptId: transportReceipt?.receiptId,
+  }
+}
+
+function buildExecutionDeliveryReadiness<TCapabilityId extends CapabilityId>(
+  handoffSummary: CapabilityExecutionResult<TCapabilityId>["handoffSummary"]
+): CapabilityExecutionResult<TCapabilityId>["deliveryReadiness"] {
+  let readinessStatus: CapabilityExecutionResult<TCapabilityId>["deliveryReadiness"]["readinessStatus"] =
+    "not_applicable"
+  let isReady = false
+  let blockingReason: string | undefined
+
+  if (handoffSummary.handoffStatus === "sent") {
+    readinessStatus = "ready_for_handoff"
+    isReady = true
+  } else if (
+    handoffSummary.handoffStatus === "attempted_not_sent" ||
+    handoffSummary.handoffStatus === "prepared"
+  ) {
+    readinessStatus = "blocked_not_sent"
+    blockingReason = handoffSummary.reason ?? "External handoff was prepared but not sent."
+  } else if (handoffSummary.handoffStatus === "needs_attention") {
+    readinessStatus = "blocked_needs_attention"
+    blockingReason =
+      handoffSummary.reason ?? "External handoff needs attention before delivery can proceed."
+  }
+
+  return {
+    readinessId: `readiness-${handoffSummary.handoffSummaryId}`,
+    evaluatedAt: handoffSummary.generatedAt,
+    requestId: handoffSummary.requestId,
+    capabilityId: handoffSummary.capabilityId,
+    exportTarget:
+      handoffSummary.handoffStatus === "not_applicable"
+        ? undefined
+        : handoffSummary.exportTarget,
+    readinessStatus,
+    isReady,
+    blockingReason,
+    handoffStatus:
+      handoffSummary.handoffStatus === "not_applicable"
+        ? undefined
+        : handoffSummary.handoffStatus,
+    envelopeId:
+      handoffSummary.handoffStatus === "not_applicable"
+        ? undefined
+        : handoffSummary.envelopeId,
+    receiptId: handoffSummary.receiptId,
+  }
+}
+
+function buildExecutionTransportAdapter<TCapabilityId extends CapabilityId>(
+  exportSerializer: CapabilityExecutionResult<TCapabilityId>["exportSerializer"],
+  deliveryReadiness: CapabilityExecutionResult<TCapabilityId>["deliveryReadiness"],
+  transportReceipt?: CapabilityExecutionResult<TCapabilityId>["transportReceipt"]
+): CapabilityExecutionResult<TCapabilityId>["transportAdapter"] {
+  const input = {
+    adapterTarget: exportSerializer.exportTarget,
+    contentType: exportSerializer.contentType,
+    serializerVersion: exportSerializer.serializerVersion,
+    envelopeId: exportSerializer.envelopeId,
+  }
+
+  if (deliveryReadiness.readinessStatus === "not_applicable") {
+    return {
+      adapterId: "n8n-webhook-transport",
+      acceptedInputType: "serialized_export_payload",
+      status: "adapter_not_applicable",
+      deliveryAttempted: false,
+      deliveryPossible: false,
+    }
+  }
+
+  if (transportReceipt?.delivered) {
+    return {
+      adapterId: "n8n-webhook-transport",
+      adapterTarget: exportSerializer.exportTarget,
+      acceptedInputType: "serialized_export_payload",
+      status: "adapter_sent",
+      deliveryAttempted: true,
+      deliveryPossible: true,
+      input,
+      receiptId: transportReceipt.receiptId,
+    }
+  }
+
+  if (deliveryReadiness.readinessStatus === "blocked_not_sent") {
+    return {
+      adapterId: "n8n-webhook-transport",
+      adapterTarget: exportSerializer.exportTarget,
+      acceptedInputType: "serialized_export_payload",
+      status: "adapter_ready_but_not_connected",
+      deliveryAttempted: transportReceipt?.attempted ?? false,
+      deliveryPossible: false,
+      blockedReason: deliveryReadiness.blockingReason,
+      input,
+      receiptId: transportReceipt?.receiptId,
+    }
+  }
+
+  return {
+    adapterId: "n8n-webhook-transport",
+    adapterTarget: exportSerializer.exportTarget,
+    acceptedInputType: "serialized_export_payload",
+    status: "adapter_ready_but_not_connected",
+    deliveryAttempted: transportReceipt?.attempted ?? false,
+    deliveryPossible: false,
+    blockedReason: deliveryReadiness.blockingReason,
+    input,
+    receiptId: transportReceipt?.receiptId,
+  }
+}
+
 function buildNoReadyProviderResult<TCapabilityId extends CapabilityId>(
   request: CapabilityRequest<TCapabilityId>,
   preferredProviderId?: ProviderId
@@ -145,9 +415,9 @@ function buildNoReadyProviderResult<TCapabilityId extends CapabilityId>(
   }
 }
 
-function buildApprovalRequiredResult<TCapabilityId extends CapabilityId>(
+async function buildApprovalRequiredResult<TCapabilityId extends CapabilityId>(
   request: CapabilityRequest<TCapabilityId>
-): CapabilityResult<TCapabilityId> {
+): Promise<CapabilityResult<TCapabilityId>> {
   const capabilityDefinition = getCapabilityDefinition(request.capabilityId)
   const { executionPolicy } = capabilityDefinition
 
@@ -158,7 +428,7 @@ function buildApprovalRequiredResult<TCapabilityId extends CapabilityId>(
       reason: "Approval is required before this operation can run.",
     }
     const handoff = buildN8nApprovalHandoff(request, approval)
-    const senderResult = sendN8nWebhookPlaceholder(handoff)
+    const senderResult = await sendN8nWebhookDelivery(handoff)
     const lifecycle = buildApprovalLifecycle(senderResult.status)
 
     return {
@@ -183,7 +453,7 @@ function buildApprovalRequiredResult<TCapabilityId extends CapabilityId>(
     reason: executionPolicy.reason,
   }
   const handoff = buildN8nApprovalHandoff(request, approval)
-  const senderResult = sendN8nWebhookPlaceholder(handoff)
+  const senderResult = await sendN8nWebhookDelivery(handoff)
   const lifecycle = buildApprovalLifecycle(senderResult.status)
 
   return {
@@ -203,7 +473,7 @@ function buildApprovalRequiredResult<TCapabilityId extends CapabilityId>(
 }
 
 function buildApprovalLifecycle(
-  senderStatus: "not_sent"
+  senderStatus: "sent" | "not_configured" | "failed"
 ): {
   currentState: ApprovalLifecycleState
   reachedStates: ApprovalLifecycleState[]
@@ -214,12 +484,14 @@ function buildApprovalLifecycle(
     "handoff_prepared",
   ]
 
-  if (senderStatus === "not_sent") {
+  if (senderStatus === "sent") {
+    reachedStates.push("handoff_sent")
+  } else {
     reachedStates.push("handoff_not_sent")
   }
 
   return {
-    currentState: senderStatus === "not_sent" ? "handoff_not_sent" : "handoff_prepared",
+    currentState: senderStatus === "sent" ? "handoff_sent" : "handoff_not_sent",
     reachedStates,
     availableStates: [
       "approval_required",
@@ -258,10 +530,42 @@ export async function executeCapability<TCapabilityId extends CapabilityId>(
       selectedProviderId: undefined,
       availableReadyProviderIds: [],
     }
-    const result = buildApprovalRequiredResult(request)
+    const result = await buildApprovalRequiredResult(request)
     const audit = buildExecutionAuditEntry(request, selection, result)
     const report = buildExecutionRunReport(request, selection, result, audit)
     const reviewSummary = buildExecutionReviewSummary(report)
+    const decisionEnvelope = buildExecutionDecisionEnvelope(reviewSummary)
+    const stateSnapshot = buildExecutionStateSnapshot(
+      request,
+      report,
+      reviewSummary,
+      decisionEnvelope
+    )
+    const contractBundle = buildExecutionContractBundle(
+      selection,
+      audit,
+      report,
+      reviewSummary,
+      stateSnapshot,
+      decisionEnvelope
+    )
+    const exportEnvelope = buildExecutionExportEnvelope(contractBundle)
+    const exportSerializer = buildExecutionExportSerializer(exportEnvelope)
+    const transportReceipt = buildExecutionTransportReceipt(
+      exportSerializer,
+      result.approval?.senderResult
+    )
+    const handoffSummary = buildExecutionHandoffSummary(
+      exportEnvelope,
+      exportSerializer,
+      transportReceipt
+    )
+    const deliveryReadiness = buildExecutionDeliveryReadiness(handoffSummary)
+    const transportAdapter = buildExecutionTransportAdapter(
+      exportSerializer,
+      deliveryReadiness,
+      transportReceipt
+    )
 
     return {
       selection,
@@ -269,7 +573,15 @@ export async function executeCapability<TCapabilityId extends CapabilityId>(
       audit,
       report,
       reviewSummary,
-      decisionEnvelope: buildExecutionDecisionEnvelope(reviewSummary),
+      decisionEnvelope,
+      stateSnapshot,
+      contractBundle,
+      exportEnvelope,
+      exportSerializer,
+      transportReceipt,
+      handoffSummary,
+      deliveryReadiness,
+      transportAdapter,
     }
   }
 
@@ -290,6 +602,38 @@ export async function executeCapability<TCapabilityId extends CapabilityId>(
     const audit = buildExecutionAuditEntry(request, selection, result)
     const report = buildExecutionRunReport(request, selection, result, audit)
     const reviewSummary = buildExecutionReviewSummary(report)
+    const decisionEnvelope = buildExecutionDecisionEnvelope(reviewSummary)
+    const stateSnapshot = buildExecutionStateSnapshot(
+      request,
+      report,
+      reviewSummary,
+      decisionEnvelope
+    )
+    const contractBundle = buildExecutionContractBundle(
+      selection,
+      audit,
+      report,
+      reviewSummary,
+      stateSnapshot,
+      decisionEnvelope
+    )
+    const exportEnvelope = buildExecutionExportEnvelope(contractBundle)
+    const exportSerializer = buildExecutionExportSerializer(exportEnvelope)
+    const transportReceipt = buildExecutionTransportReceipt(
+      exportSerializer,
+      result.approval?.senderResult
+    )
+    const handoffSummary = buildExecutionHandoffSummary(
+      exportEnvelope,
+      exportSerializer,
+      transportReceipt
+    )
+    const deliveryReadiness = buildExecutionDeliveryReadiness(handoffSummary)
+    const transportAdapter = buildExecutionTransportAdapter(
+      exportSerializer,
+      deliveryReadiness,
+      transportReceipt
+    )
 
     return {
       selection,
@@ -297,7 +641,15 @@ export async function executeCapability<TCapabilityId extends CapabilityId>(
       audit,
       report,
       reviewSummary,
-      decisionEnvelope: buildExecutionDecisionEnvelope(reviewSummary),
+      decisionEnvelope,
+      stateSnapshot,
+      contractBundle,
+      exportEnvelope,
+      exportSerializer,
+      transportReceipt,
+      handoffSummary,
+      deliveryReadiness,
+      transportAdapter,
     }
   }
 
@@ -315,6 +667,38 @@ export async function executeCapability<TCapabilityId extends CapabilityId>(
   const audit = buildExecutionAuditEntry(request, selection, result)
   const report = buildExecutionRunReport(request, selection, result, audit)
   const reviewSummary = buildExecutionReviewSummary(report)
+  const decisionEnvelope = buildExecutionDecisionEnvelope(reviewSummary)
+  const stateSnapshot = buildExecutionStateSnapshot(
+    request,
+    report,
+    reviewSummary,
+    decisionEnvelope
+  )
+  const contractBundle = buildExecutionContractBundle(
+    selection,
+    audit,
+    report,
+    reviewSummary,
+    stateSnapshot,
+    decisionEnvelope
+  )
+  const exportEnvelope = buildExecutionExportEnvelope(contractBundle)
+  const exportSerializer = buildExecutionExportSerializer(exportEnvelope)
+  const transportReceipt = buildExecutionTransportReceipt(
+    exportSerializer,
+    result.approval?.senderResult
+  )
+  const handoffSummary = buildExecutionHandoffSummary(
+    exportEnvelope,
+    exportSerializer,
+    transportReceipt
+  )
+  const deliveryReadiness = buildExecutionDeliveryReadiness(handoffSummary)
+  const transportAdapter = buildExecutionTransportAdapter(
+    exportSerializer,
+    deliveryReadiness,
+    transportReceipt
+  )
 
   return {
     selection,
@@ -322,6 +706,14 @@ export async function executeCapability<TCapabilityId extends CapabilityId>(
     audit,
     report,
     reviewSummary,
-    decisionEnvelope: buildExecutionDecisionEnvelope(reviewSummary),
+    decisionEnvelope,
+    stateSnapshot,
+    contractBundle,
+    exportEnvelope,
+    exportSerializer,
+    transportReceipt,
+    handoffSummary,
+    deliveryReadiness,
+    transportAdapter,
   }
 }

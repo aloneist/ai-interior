@@ -1,6 +1,6 @@
 import type { ProviderId } from "@/automation/providers/types"
 import type { N8nApprovalHandoffPayload } from "@/automation/orchestration/n8n/approval-handoff"
-import type { N8nWebhookPlaceholderDeliveryResult } from "@/automation/orchestration/n8n/webhook-placeholder-sender"
+import type { N8nWebhookDeliveryResult } from "@/automation/orchestration/n8n/webhook-placeholder-sender"
 
 export type CapabilityId =
   | "catalog.read"
@@ -195,7 +195,7 @@ export type CapabilityApprovalRequirement = {
   reason?: string
   riskLevel?: "low" | "medium" | "high"
   handoff?: N8nApprovalHandoffPayload
-  senderResult?: N8nWebhookPlaceholderDeliveryResult
+  senderResult?: N8nWebhookDeliveryResult
   lifecycle?: CapabilityApprovalLifecycle
 }
 

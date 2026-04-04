@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
     "automation:smoke": "node automation/demo/run-smoke-test.cjs",
+    "automation:smoke:report": "node automation/demo/run-smoke-report.mjs",
+    "automation:runtime:http:verify": "node automation/demo/verify-runtime-bridges-http.mjs",
     "reset": "rm -rf node_modules .next package-lock.json && npm install",
     "dev:reset": "rm -rf node_modules .next package-lock.json && npm install && next dev"
   },

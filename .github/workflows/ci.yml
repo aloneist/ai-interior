@@ -30,7 +30,17 @@ jobs:
         run: npm run lint
 
       - name: Automation smoke validation
+        env:
+          AUTOMATION_SMOKE_REPORT_PATH: ${{ runner.temp }}/automation-smoke-report.json
         run: npm run automation:smoke
+
+      - name: Upload automation smoke report artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-smoke-report
+          path: ${{ runner.temp }}/automation-smoke-report.json
+          if-no-files-found: warn
 
       - name: Build
         run: npm run build
