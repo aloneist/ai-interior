@@ -1,19 +1,22 @@
-# Supabase Provider Placeholder
+# Supabase Provider
 
-Reserved for future Supabase automation work.
+This folder contains the first restricted Supabase automation path.
 
-Potential future responsibilities:
-- controlled reads for operational data
-- approved write workflows
-- QA or reporting support
+Current responsibilities:
+- explicit read-only catalog gateway for `catalog.read`
+- one allowed operation: `list_active_furniture_products`
+- reads from `furniture_products` only
+- filters to `status = active`
+- optional category filter and bounded limit
 
 Current scaffold status:
-- includes a static `catalog.read` provider stub
-- returns mock catalog items only
-- does not connect to Supabase or read environment variables
+- keeps the provider boundary inside automation
+- uses `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` only
+- falls back to demo-only in-memory data when Supabase env is absent
+- does not expose arbitrary SQL or arbitrary table execution
 
 Not included yet:
-- live credentials
-- SDK integration
 - schema operations
 - runtime product coupling
+- write or admin operations
+- general-purpose database execution

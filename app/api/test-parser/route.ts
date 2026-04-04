@@ -5,6 +5,10 @@ import { compareIkeaParsers } from "@/lib/parsers";
 import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
 import type { RawProductSnapshot } from "@/lib/parsers/shared/snapshot";
 
+type TestParserRequest = {
+  sourceUrl: string;
+};
+
 function normalizeUrl(url: string) {
   try {
     return new URL(url).toString();
@@ -75,7 +79,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sourceUrl } = await req.json();
+    const { sourceUrl } = (await req.json()) as TestParserRequest;
 
     if (!sourceUrl) {
       return NextResponse.json(

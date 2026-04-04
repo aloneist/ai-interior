@@ -26,6 +26,15 @@ type ScoredRecommendation = RecommendationFurniture & {
   recommendation_score: number
 }
 
+type RecommendationRequest = {
+  brightness: number
+  temperature: number
+  footprint: number
+  minimalism: number
+  contrast: number
+  colorfulness: number
+}
+
 export async function POST(req: Request) {
   try {
     const {
@@ -35,7 +44,7 @@ export async function POST(req: Request) {
       minimalism,
       contrast,
       colorfulness,
-    } = await req.json()
+    } = (await req.json()) as RecommendationRequest
 
     const weights = {
       brightness: 0.2,

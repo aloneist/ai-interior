@@ -53,6 +53,10 @@ type TaxonomySnapshot = {
 
 type ParserResult = ParsedFurnitureProduct | null;
 
+type ImportProductRequest = {
+  sourceUrl: string;
+};
+
 function normalizeUrl(url: string) {
   try {
     const u = new URL(url);
@@ -220,7 +224,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { sourceUrl } = await req.json();
+    const { sourceUrl } = (await req.json()) as ImportProductRequest;
 
     if (!sourceUrl) {
       return NextResponse.json(

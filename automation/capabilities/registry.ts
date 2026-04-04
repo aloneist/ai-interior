@@ -4,8 +4,13 @@ export const capabilityRegistry: Record<CapabilityId, CapabilityDefinition> = {
   "catalog.read": {
     id: "catalog.read",
     area: "catalog",
-    summary: "Read catalog data through a provider-backed automation interface.",
-    stage: "placeholder",
+    summary:
+      "Read catalog data through an explicit provider-backed read-only gateway operation.",
+    stage: "active",
+    executionPolicy: {
+      mode: "auto-allowed",
+      riskLevel: "low",
+    },
     bindings: [],
   },
   "catalog.write.safe": {
@@ -13,6 +18,11 @@ export const capabilityRegistry: Record<CapabilityId, CapabilityDefinition> = {
     area: "catalog",
     summary: "Write catalog changes through a guarded, review-friendly automation path.",
     stage: "placeholder",
+    executionPolicy: {
+      mode: "approval-required",
+      riskLevel: "high",
+      reason: "Catalog write operations must not auto-run in automation v1.",
+    },
     bindings: [],
   },
   "asset.upload": {
@@ -20,13 +30,23 @@ export const capabilityRegistry: Record<CapabilityId, CapabilityDefinition> = {
     area: "asset",
     summary: "Upload assets through a provider adapter without binding product runtime code.",
     stage: "planned",
+    executionPolicy: {
+      mode: "approval-required",
+      riskLevel: "high",
+      reason: "Asset upload operations must not auto-run in automation v1.",
+    },
     bindings: [],
   },
   "asset.search": {
     id: "asset.search",
     area: "asset",
-    summary: "Search or locate assets through a provider-backed automation interface.",
-    stage: "planned",
+    summary:
+      "Search assets through an explicit provider-backed read-only gateway operation.",
+    stage: "active",
+    executionPolicy: {
+      mode: "auto-allowed",
+      riskLevel: "low",
+    },
     bindings: [],
   },
   "qa.run": {
@@ -34,6 +54,11 @@ export const capabilityRegistry: Record<CapabilityId, CapabilityDefinition> = {
     area: "qa",
     summary: "Run QA or verification tasks such as lint, build, or future custom checks.",
     stage: "placeholder",
+    executionPolicy: {
+      mode: "approval-required",
+      riskLevel: "medium",
+      reason: "QA execution is not auto-allowed until orchestration approval is explicit.",
+    },
     bindings: [],
   },
   "approval.request": {
@@ -41,6 +66,11 @@ export const capabilityRegistry: Record<CapabilityId, CapabilityDefinition> = {
     area: "approval",
     summary: "Create an approval request for human review or orchestration routing.",
     stage: "planned",
+    executionPolicy: {
+      mode: "approval-required",
+      riskLevel: "medium",
+      reason: "Approval flows stop at the automation boundary until routing is implemented.",
+    },
     bindings: [],
   },
   "notify.send": {
@@ -48,6 +78,11 @@ export const capabilityRegistry: Record<CapabilityId, CapabilityDefinition> = {
     area: "notify",
     summary: "Send workflow notifications through a later provider implementation.",
     stage: "planned",
+    executionPolicy: {
+      mode: "approval-required",
+      riskLevel: "medium",
+      reason: "Notification delivery is not auto-allowed in automation v1.",
+    },
     bindings: [],
   },
 }

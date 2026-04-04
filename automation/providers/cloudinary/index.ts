@@ -1,9 +1,12 @@
 import type {
+  AssetSearchInput,
   AssetSearchOutput,
+  AssetSearchResultItem,
   CapabilityId,
   CapabilityRequest,
   CapabilityResult,
 } from "@/automation/capabilities/types"
+import { v2 as cloudinary } from "cloudinary"
 import type {
   ProviderCapabilitySupport,
   ProviderDefinition,
@@ -19,6 +22,18 @@ type MockCloudinaryAsset = {
   folder: string
   resourceType: "image"
 }
+
+type CloudinarySearchResource = {
+  public_id?: string
+  secure_url?: string
+  display_name?: string
+  folder?: string
+  tags?: string[]
+}
+
+const SEARCH_DESIGN_REFERENCE_ASSETS = "search_design_reference_assets"
+const DEFAULT_MAX_RESULTS = 5
+const MAX_MAX_RESULTS = 10
 
 const mockCloudinaryAssets: MockCloudinaryAsset[] = [
   {
@@ -49,9 +64,10 @@ const mockCloudinaryAssets: MockCloudinaryAsset[] = [
 
 export const cloudinaryProviderDefinition: ProviderDefinition = {
   id: "cloudinary",
-  displayName: "Cloudinary Provider Stub",
-  status: "placeholder",
-  purpose: "Static read-only automation stub for asset search provider work.",
+  displayName: "Cloudinary Read-Only Gateway",
+  status: "planned",
+  purpose:
+    "Restricted automation gateway for explicit read-only Cloudinary asset search operations.",
 }
 
 export const cloudinaryCapabilitySupport: ProviderCapabilitySupport[] = [
@@ -73,7 +89,8 @@ export const cloudinaryCapabilitySupport: ProviderCapabilitySupport[] = [
   {
     capabilityId: "asset.search",
     status: "ready",
-    notes: "Returns static mock asset search results from an in-memory stub.",
+    notes:
+      "Executes the explicit search_design_reference_assets read-only operation through a constrained gateway.",
   },
   {
     capabilityId: "qa.run",
@@ -92,30 +109,97 @@ export const cloudinaryCapabilitySupport: ProviderCapabilitySupport[] = [
   },
 ]
 
-function getAssetSearchMockResult(
-  request: CapabilityRequest<"asset.search">,
-  context?: ProviderExecutionContext
-): CapabilityResult<"asset.search"> {
-  void context
+function normalizeFolder(folder?: string): string | undefined {
+  const normalized = folder?.trim().replace(/^\/+|\/+$/g, "")
+  return normalized ? normalized : undefined
+}
 
-  const normalizedQuery = request.payload.query.trim().toLowerCase()
-  const normalizedTags = (request.payload.tags ?? []).map((tag) =>
-    tag.trim().toLowerCase()
+function normalizeTags(tags?: string[]): string[] {
+  return (tags ?? [])
+    .map((tag) => tag.trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 3)
+}
+
+function normalizeMaxResults(maxResults?: number): number {
+  if (!Number.isFinite(maxResults)) {
+    return DEFAULT_MAX_RESULTS
+  }
+
+  const boundedMaxResults = Math.floor(maxResults as number)
+
+  if (boundedMaxResults < 1) {
+    return 1
+  }
+
+  return Math.min(boundedMaxResults, MAX_MAX_RESULTS)
+}
+
+function hasCloudinaryGatewayEnv(): boolean {
+  return Boolean(
+    process.env.CLOUDINARY_NAME &&
+      process.env.CLOUDINARY_KEY &&
+      process.env.CLOUDINARY_SECRET
   )
-  const normalizedLimit = request.payload.limit ?? mockCloudinaryAssets.length
+}
+
+function configureCloudinaryReadonly(): void {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_KEY,
+    api_secret: process.env.CLOUDINARY_SECRET,
+  })
+}
+
+function mapMockAsset(asset: MockCloudinaryAsset): AssetSearchResultItem {
+  return {
+    assetId: asset.assetId,
+    assetUrl: asset.assetUrl,
+    title: asset.title,
+    folder: asset.folder,
+    tags: asset.tags,
+  }
+}
+
+function mapCloudinaryResource(
+  resource: CloudinarySearchResource
+): AssetSearchResultItem | undefined {
+  if (!resource.public_id) {
+    return undefined
+  }
+
+  return {
+    assetId: resource.public_id,
+    assetUrl: resource.secure_url,
+    title: resource.display_name,
+    folder: resource.folder,
+    tags: resource.tags ?? [],
+  }
+}
+
+function buildInvalidAssetSearchResult(
+  message: string
+): CapabilityResult<"asset.search"> {
+  return {
+    capabilityId: "asset.search",
+    ok: false,
+    providerId: "cloudinary",
+    error: {
+      code: "INVALID_ASSET_SEARCH_REQUEST",
+      message,
+    },
+  }
+}
+
+function buildAssetSearchFallbackResult(
+  payload: AssetSearchInput
+): CapabilityResult<"asset.search"> {
+  const normalizedFolder = normalizeFolder(payload.folder)
+  const normalizedTags = normalizeTags(payload.tags)
+  const normalizedMaxResults = normalizeMaxResults(payload.maxResults)
 
   const filteredAssets = mockCloudinaryAssets.filter((asset) => {
-    const haystack = [
-      asset.assetId,
-      asset.title,
-      asset.folder,
-      asset.resourceType,
-      ...asset.tags,
-    ]
-      .join(" ")
-      .toLowerCase()
-
-    if (normalizedQuery && !haystack.includes(normalizedQuery)) {
+    if (normalizedFolder && asset.folder !== normalizedFolder) {
       return false
     }
 
@@ -128,11 +212,11 @@ function getAssetSearchMockResult(
   })
 
   const data: AssetSearchOutput = {
-    results: filteredAssets.slice(0, normalizedLimit).map((asset) => ({
-      assetId: asset.assetId,
-      assetUrl: asset.assetUrl,
-      title: asset.title,
-    })),
+    operation: SEARCH_DESIGN_REFERENCE_ASSETS,
+    source: "demo-fallback",
+    results: filteredAssets
+      .slice(0, normalizedMaxResults)
+      .map((asset) => mapMockAsset(asset)),
   }
 
   return {
@@ -141,6 +225,98 @@ function getAssetSearchMockResult(
     providerId: "cloudinary",
     data,
   }
+}
+
+function shouldUseDemoFallback(error: unknown): boolean {
+  const message =
+    error instanceof Error ? error.message : typeof error === "string" ? error : ""
+  const normalizedMessage = message.toLowerCase()
+
+  return (
+    normalizedMessage.includes("fetch failed") ||
+    normalizedMessage.includes("eai_again") ||
+    normalizedMessage.includes("getaddrinfo")
+  )
+}
+
+function buildSearchExpression(payload: AssetSearchInput): string {
+  const expressionParts = ['resource_type:image']
+  const normalizedFolder = normalizeFolder(payload.folder)
+  const normalizedTags = normalizeTags(payload.tags)
+
+  if (normalizedFolder) {
+    expressionParts.push(`folder="${normalizedFolder}"`)
+  }
+
+  for (const tag of normalizedTags) {
+    expressionParts.push(`tags="${tag}"`)
+  }
+
+  return expressionParts.join(" AND ")
+}
+
+async function runSearchDesignReferenceAssets(
+  payload: AssetSearchInput
+): Promise<CapabilityResult<"asset.search">> {
+  if (!hasCloudinaryGatewayEnv()) {
+    return buildAssetSearchFallbackResult(payload)
+  }
+
+  const maxResults = normalizeMaxResults(payload.maxResults)
+
+  try {
+    configureCloudinaryReadonly()
+
+    const response = await cloudinary.search
+      .expression(buildSearchExpression(payload))
+      .sort_by("public_id", "asc")
+      .max_results(maxResults)
+      .execute()
+
+    const results = ((response.resources ?? []) as CloudinarySearchResource[])
+      .map((resource) => mapCloudinaryResource(resource))
+      .filter((item): item is AssetSearchResultItem => Boolean(item))
+
+    return {
+      capabilityId: "asset.search",
+      ok: true,
+      providerId: "cloudinary",
+      data: {
+        operation: SEARCH_DESIGN_REFERENCE_ASSETS,
+        source: "cloudinary",
+        results,
+      },
+    }
+  } catch (error: unknown) {
+    if (shouldUseDemoFallback(error)) {
+      return buildAssetSearchFallbackResult(payload)
+    }
+
+    return {
+      capabilityId: "asset.search",
+      ok: false,
+      providerId: "cloudinary",
+      error: {
+        code: "CLOUDINARY_READ_FAILED",
+        message: error instanceof Error ? error.message : "Cloudinary asset search failed",
+      },
+    }
+  }
+}
+
+async function getAssetSearchGatewayResult(
+  request: CapabilityRequest<"asset.search">,
+  context?: ProviderExecutionContext
+): Promise<CapabilityResult<"asset.search">> {
+  void context
+
+  if (request.payload.operation !== SEARCH_DESIGN_REFERENCE_ASSETS) {
+    return buildInvalidAssetSearchResult(
+      `Unsupported asset.search operation: ${request.payload.operation}.`
+    )
+  }
+
+  return runSearchDesignReferenceAssets(request.payload)
 }
 
 function getUnsupportedResult<TCapabilityId extends Exclude<CapabilityId, "asset.search">>(
@@ -165,10 +341,12 @@ export const cloudinaryProviderStub: ProviderExecutor = {
     context?: ProviderExecutionContext
   ): Promise<CapabilityResult<TCapabilityId>> {
     if (request.capabilityId === "asset.search") {
-      return getAssetSearchMockResult(
+      const gatewayResult = await getAssetSearchGatewayResult(
         request as CapabilityRequest<"asset.search">,
         context
-      ) as CapabilityResult<TCapabilityId>
+      )
+
+      return gatewayResult as unknown as CapabilityResult<TCapabilityId>
     }
 
     return getUnsupportedResult(

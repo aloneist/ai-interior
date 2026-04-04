@@ -8,4 +8,8 @@ Potential future contents:
 - approval-routing documentation
 - execution handoff conventions
 
-No real workflow implementation is included in this scaffold.
+Current scaffold note:
+- `approval-handoff.ts` defines the v1 typed approval handoff payload contract
+- `webhook-placeholder-sender.ts` defines the v1 no-op sender boundary for that payload
+- execution may surface that payload on approval-required results
+- no real webhook or workflow execution is included in this scaffold

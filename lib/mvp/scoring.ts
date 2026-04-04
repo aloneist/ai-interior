@@ -12,10 +12,14 @@ const ROOM_TYPE_CATEGORY_WEIGHTS = {
     default: -2,
   },
   bedroom: {
-    sofa: 2,
-    chair: 8,
-    table: 5,
-    default: 0,
+    bed: 18,
+    nightstand: 14,
+    dresser: 14,
+    storage: 12,
+    chair: 3,
+    table: -4,
+    sofa: -6,
+    default: -2,
   },
   workspace: {
     sofa: -6,
@@ -85,22 +89,81 @@ export type ScoredFurnitureLike = {
   recommendation_score: number
 }
 
+const BEDROOM_CATEGORY_KEYWORDS = {
+  bed: ["bed", "침대", "mattress", "매트리스", "bed frame", "침대 프레임"],
+  nightstand: [
+    "nightstand",
+    "bedside",
+    "bedside table",
+    "협탁",
+    "침대협탁",
+    "bedside cabinet",
+  ],
+  dresser: ["dresser", "drawer", "chest", "wardrobe", "서랍장", "옷장"],
+  storage: [
+    "storage",
+    "cabinet",
+    "shelf",
+    "bookshelf",
+    "bookcase",
+    "수납",
+    "수납장",
+    "캐비닛",
+    "선반",
+    "책장",
+    "정리",
+  ],
+} as const
+
+function getFurnitureText(item: Pick<ScoredFurnitureLike, "name" | "category">) {
+  return normalizeText([item.category, item.name].filter(Boolean).join(" "))
+}
+
+function getBedroomCategoryWeight(item: ScoredFurnitureLike) {
+  const text = getFurnitureText(item)
+  const weights = ROOM_TYPE_CATEGORY_WEIGHTS.bedroom
+
+  if (includesAnyKeyword(text, BEDROOM_CATEGORY_KEYWORDS.bed)) return weights.bed
+  if (includesAnyKeyword(text, BEDROOM_CATEGORY_KEYWORDS.nightstand)) {
+    return weights.nightstand
+  }
+  if (includesAnyKeyword(text, BEDROOM_CATEGORY_KEYWORDS.dresser)) {
+    return weights.dresser
+  }
+  if (includesAnyKeyword(text, BEDROOM_CATEGORY_KEYWORDS.storage)) {
+    return weights.storage
+  }
+  if (includesAnyKeyword(text, ["chair", "암체어", "의자", "bench", "벤치"])) {
+    return weights.chair
+  }
+  if (includesAnyKeyword(text, ["table", "테이블", "desk", "책상"])) {
+    return weights.table
+  }
+  if (includesAnyKeyword(text, ["sofa", "소파", "couch"])) return weights.sofa
+
+  return weights.default
+}
+
 export function scoreFurnitureByRoomType(
   item: ScoredFurnitureLike,
   roomType?: string | null
 ) {
-  const category = normalizeText(item.category)
   const room = normalizeText(
     roomType
   ) as keyof typeof ROOM_TYPE_CATEGORY_WEIGHTS | ""
 
   if (!room || !(room in ROOM_TYPE_CATEGORY_WEIGHTS)) return 0
 
-  const weights = ROOM_TYPE_CATEGORY_WEIGHTS[room]
+  if (room === "bedroom") {
+    return getBedroomCategoryWeight(item)
+  }
 
-  if (includesAnyKeyword(category, ["sofa"])) return weights.sofa
-  if (includesAnyKeyword(category, ["chair"])) return weights.chair
-  if (includesAnyKeyword(category, ["table"])) return weights.table
+  const weights = ROOM_TYPE_CATEGORY_WEIGHTS[room]
+  const text = getFurnitureText(item)
+
+  if (includesAnyKeyword(text, ["sofa"])) return weights.sofa
+  if (includesAnyKeyword(text, ["chair"])) return weights.chair
+  if (includesAnyKeyword(text, ["table"])) return weights.table
 
   return weights.default
 }

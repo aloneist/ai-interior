@@ -1,4 +1,6 @@
 import type { ProviderId } from "@/automation/providers/types"
+import type { N8nApprovalHandoffPayload } from "@/automation/orchestration/n8n/approval-handoff"
+import type { N8nWebhookPlaceholderDeliveryResult } from "@/automation/orchestration/n8n/webhook-placeholder-sender"
 
 export type CapabilityId =
   | "catalog.read"
@@ -29,17 +31,46 @@ export type CapabilityDefinition = {
   area: CapabilityArea
   summary: string
   stage: CapabilityStage
+  executionPolicy: CapabilityExecutionPolicy
   bindings: CapabilityProviderBinding[]
 }
 
+export type CapabilityExecutionPolicy =
+  | {
+      mode: "auto-allowed"
+      riskLevel: "low"
+    }
+  | {
+      mode: "approval-required"
+      riskLevel: "medium" | "high"
+      reason: string
+    }
+
+export type CatalogReadOperation = "list_active_furniture_products"
+
+export type CatalogReadItem = {
+  id: string
+  source_url?: string | null
+  product_name: string
+  brand?: string | null
+  category?: string | null
+  price?: number | null
+  currency?: string | null
+  image_url?: string | null
+  product_url?: string | null
+  status?: string | null
+}
+
 export type CatalogReadInput = {
-  query?: string
-  filters?: Record<string, string | number | boolean>
+  operation: CatalogReadOperation
+  category?: string
   limit?: number
 }
 
 export type CatalogReadOutput = {
-  items: Array<Record<string, unknown>>
+  operation: CatalogReadOperation
+  source: "supabase" | "demo-fallback"
+  items: CatalogReadItem[]
   totalCount?: number
 }
 
@@ -68,18 +99,27 @@ export type AssetUploadOutput = {
   assetUrl?: string
 }
 
-export type AssetSearchInput = {
-  query: string
+export type AssetSearchOperation = "search_design_reference_assets"
+
+export type AssetSearchResultItem = {
+  assetId: string
+  assetUrl?: string
+  title?: string
+  folder?: string | null
   tags?: string[]
-  limit?: number
+}
+
+export type AssetSearchInput = {
+  operation: AssetSearchOperation
+  folder?: string
+  tags?: string[]
+  maxResults?: number
 }
 
 export type AssetSearchOutput = {
-  results: Array<{
-    assetId: string
-    assetUrl?: string
-    title?: string
-  }>
+  operation: AssetSearchOperation
+  source: "cloudinary" | "demo-fallback"
+  results: AssetSearchResultItem[]
 }
 
 export type QaRunInput = {
@@ -150,10 +190,34 @@ export type CapabilityError = {
   message: string
 }
 
+export type CapabilityApprovalRequirement = {
+  status: "not-required" | "required"
+  reason?: string
+  riskLevel?: "low" | "medium" | "high"
+  handoff?: N8nApprovalHandoffPayload
+  senderResult?: N8nWebhookPlaceholderDeliveryResult
+  lifecycle?: CapabilityApprovalLifecycle
+}
+
+export type ApprovalLifecycleState =
+  | "approval_required"
+  | "handoff_prepared"
+  | "handoff_not_sent"
+  | "handoff_sent"
+  | "approved"
+  | "rejected"
+
+export type CapabilityApprovalLifecycle = {
+  currentState: ApprovalLifecycleState
+  reachedStates: ApprovalLifecycleState[]
+  availableStates: ApprovalLifecycleState[]
+}
+
 export type CapabilityResult<TCapabilityId extends CapabilityId = CapabilityId> = {
   capabilityId: TCapabilityId
   ok: boolean
   providerId?: ProviderId
+  approval?: CapabilityApprovalRequirement
   data?: CapabilityOutputMap[TCapabilityId]
   error?: CapabilityError
 }

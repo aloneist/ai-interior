@@ -22,6 +22,10 @@ type FurnitureAnalysisResult = {
   dominant_color_hex?: string | null
 }
 
+function parseOpenAiJson(content: string): FurnitureAnalysisResult {
+  return JSON.parse(content) as FurnitureAnalysisResult
+}
+
 function makeProductKey(input: {
   name?: string
   brand?: string
@@ -103,9 +107,7 @@ Rules:
       ],
     })
 
-    const analysis: FurnitureAnalysisResult = JSON.parse(
-      response.choices[0].message.content!
-    )
+    const analysis = parseOpenAiJson(response.choices[0].message.content!)
 
     const product_key = makeProductKey({ name, brand, category })
 

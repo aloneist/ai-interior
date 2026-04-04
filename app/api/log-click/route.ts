@@ -3,9 +3,14 @@ export const runtime = "nodejs"
 import { NextResponse } from "next/server"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
+type LogClickRequest = {
+  request_id: string
+  furniture_id: string
+}
+
 export async function POST(req: Request) {
   try {
-    const { request_id, furniture_id } = await req.json()
+    const { request_id, furniture_id } = (await req.json()) as LogClickRequest
 
     if (!request_id || !furniture_id) {
       return NextResponse.json(

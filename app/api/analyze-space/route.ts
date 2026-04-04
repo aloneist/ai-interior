@@ -18,6 +18,10 @@ type SpaceAnalysisResult = {
   dominant_color_hex?: unknown
 }
 
+function parseOpenAiJson(content: string): SpaceAnalysisResult {
+  return JSON.parse(content) as SpaceAnalysisResult
+}
+
 function clampScore(v: unknown) {
   const n = Number(v)
   if (!Number.isFinite(n)) return 50
@@ -87,7 +91,7 @@ Rules:
     })
 
     const raw = response.choices[0].message.content!
-    const analysis: SpaceAnalysisResult = JSON.parse(raw)
+    const analysis = parseOpenAiJson(raw)
 
     const normalized = {
       image_url: imageUrl,
