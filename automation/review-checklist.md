@@ -97,6 +97,9 @@ Documentation-only changes:
 
 - [contract-map.md](/workspaces/ai-interior/automation/contract-map.md) still matches repository reality.
 - [README.md](/workspaces/ai-interior/automation/README.md) still points reviewers to the right starting documents.
+- [baseline-closeout.md](/workspaces/ai-interior/automation/baseline-closeout.md) still reflects the current closeout boundary honestly.
+- [baseline-approval.md](/workspaces/ai-interior/automation/baseline-approval.md) still reflects the current decision states honestly.
+- [final-review.md](/workspaces/ai-interior/automation/final-review.md) still reflects the current baseline honestly.
 - [demo/README.md](/workspaces/ai-interior/automation/demo/README.md) still matches current smoke coverage and boundaries.
 - Smoke interpretation still stays aligned:
   - CI trusts the smoke exit code first
@@ -107,11 +110,40 @@ Documentation-only changes:
 - If a contract is added, removed, or renamed, update the contract map and this checklist in the same change.
 - If approval response receive-side contracts change, update the change log template in the same change when needed.
 
+## Final Baseline Review Checks
+
+- Final review still checks the current artifact set in one place:
+  - `automation-smoke-report`
+  - `automation-runtime-inspect-report`
+  - `automation-runtime-http-verify-report`
+  - `automation-runtime-check-report`
+  - `automation-runtime-artifact-manifest`
+  - `automation-readiness-report`
+- The final-review bundle still makes the current baseline explicit:
+  - what is included now
+  - what is intentionally deferred
+  - what “approved baseline” means
+- The baseline-approval bundle still makes the current decision path explicit:
+  - `approved baseline`
+  - `hold for follow-up`
+  - `next-phase handoff`
+- The baseline-closeout bundle still makes the stop/continue boundary explicit:
+  - when the current baseline is closed
+  - what work should stop here
+  - what belongs to the next phase
+- Minimum evidence for the baseline decision still stays explicit and artifact-based.
+- The automation readiness report still stays composition-only and does not imply broader runtime behavior.
+
 ## Minimal Review Flow
 
-1. Read [contract-map.md](/workspaces/ai-interior/automation/contract-map.md).
-2. Run `npm run automation:smoke` when behavior or contracts changed.
-3. If code changed, run `npm run lint` and `npx tsc --noEmit`.
-4. Confirm read-only flows still auto-run and approval-required flows still stop.
-5. Confirm delivery remains scoped to approval-required handoff only and never auto-executes risky work.
-6. Confirm accepted approval responses remain blocked and only affect receive-side intake/summary contracts.
+1. Read [baseline-approval.md](/workspaces/ai-interior/automation/baseline-approval.md).
+2. Read [final-review.md](/workspaces/ai-interior/automation/final-review.md).
+3. Read [contract-map.md](/workspaces/ai-interior/automation/contract-map.md).
+4. Run `npm run automation:smoke` when behavior or contracts changed.
+5. If code changed, run `npm run lint` and `npx tsc --noEmit`.
+6. Confirm read-only flows still auto-run and approval-required flows still stop.
+7. Confirm delivery remains scoped to approval-required handoff only and never auto-executes risky work.
+8. Confirm accepted approval responses remain blocked and only affect receive-side intake/summary contracts.
+9. Confirm the current smoke/runtime/readiness artifacts still align as one reviewable baseline.
+10. Record one explicit decision: `approved baseline`, `hold for follow-up`, or `next-phase handoff`.
+11. If the baseline is done, confirm closeout explicitly and stop baseline-only automation expansion here.

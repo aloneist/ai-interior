@@ -1,0 +1,776 @@
+{
+  "generatedAt": "2026-04-05T06:26:42.741Z",
+  "command": "npm run supabase:readiness:snapshot",
+  "artifacts": {
+    "snapshot": "automation/supabase-readiness-snapshot.json",
+    "summary": "automation/supabase-readiness-summary.md"
+  },
+  "environment": {
+    "NEXT_PUBLIC_SUPABASE_URL": true,
+    "SUPABASE_SERVICE_ROLE_KEY": true
+  },
+  "conclusion": {
+    "status": "partial",
+    "summary": "Direct schema reads work, but critical tables are empty: furniture_products."
+  },
+  "tables": [
+    {
+      "table": "furniture_products",
+      "exists": true,
+      "purpose": "Catalog product ingest and save path.",
+      "sourcePaths": [
+        "app/api/test-save-product/route.ts",
+        "automation/providers/supabase/catalog-read-stub.ts",
+        "automation/demo/run-connection-loop-validation.mjs"
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "dataType": "string",
+          "nullable": false,
+          "default": "gen_random_uuid()",
+          "ordinalPosition": 1
+        },
+        {
+          "name": "source_site",
+          "dataType": "string",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 2
+        },
+        {
+          "name": "source_url",
+          "dataType": "string",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 3
+        },
+        {
+          "name": "product_name",
+          "dataType": "string",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 4
+        },
+        {
+          "name": "brand",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 5
+        },
+        {
+          "name": "category",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 6
+        },
+        {
+          "name": "price",
+          "dataType": "number",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 7
+        },
+        {
+          "name": "currency",
+          "dataType": "string",
+          "nullable": true,
+          "default": "KRW",
+          "ordinalPosition": 8
+        },
+        {
+          "name": "image_url",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 9
+        },
+        {
+          "name": "product_url",
+          "dataType": "string",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 10
+        },
+        {
+          "name": "description",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 11
+        },
+        {
+          "name": "color",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 12
+        },
+        {
+          "name": "material",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 13
+        },
+        {
+          "name": "width_cm",
+          "dataType": "number",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 14
+        },
+        {
+          "name": "depth_cm",
+          "dataType": "number",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 15
+        },
+        {
+          "name": "height_cm",
+          "dataType": "number",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 16
+        },
+        {
+          "name": "metadata_json",
+          "dataType": "jsonb",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 17
+        },
+        {
+          "name": "status",
+          "dataType": "string",
+          "nullable": true,
+          "default": "active",
+          "ordinalPosition": 18
+        },
+        {
+          "name": "created_at",
+          "dataType": "string",
+          "nullable": true,
+          "default": "now()",
+          "ordinalPosition": 19
+        },
+        {
+          "name": "updated_at",
+          "dataType": "string",
+          "nullable": true,
+          "default": "now()",
+          "ordinalPosition": 20
+        }
+      ],
+      "counts": {
+        "total": 0,
+        "filtered": {
+          "active": 0
+        }
+      },
+      "sampleRow": null
+    },
+    {
+      "table": "furniture_vectors",
+      "exists": true,
+      "purpose": "Recommendation scoring vector surface.",
+      "sourcePaths": [
+        "app/api/recommend/route.ts",
+        "app/api/recommend-space/route.ts",
+        "app/api/mvp/route.ts"
+      ],
+      "columns": [
+        {
+          "name": "furniture_id",
+          "dataType": "string",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 1
+        },
+        {
+          "name": "brightness_compatibility",
+          "dataType": "number",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 2
+        },
+        {
+          "name": "color_temperature_score",
+          "dataType": "number",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 3
+        },
+        {
+          "name": "spatial_footprint_score",
+          "dataType": "number",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 4
+        },
+        {
+          "name": "minimalism_score",
+          "dataType": "number",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 5
+        },
+        {
+          "name": "contrast_score",
+          "dataType": "number",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 6
+        },
+        {
+          "name": "colorfulness_score",
+          "dataType": "number",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 7
+        }
+      ],
+      "counts": {
+        "total": 28,
+        "filtered": {}
+      },
+      "sampleRow": {
+        "furniture_id": "47f9e98c-4379-41ac-8915-5b5c61fd7aa7",
+        "brightness_compatibility": 55,
+        "minimalism_score": 52
+      }
+    },
+    {
+      "table": "furniture",
+      "exists": true,
+      "purpose": "Furniture record joined from recommendation vectors.",
+      "sourcePaths": [
+        "app/api/analyze-furniture/route.ts",
+        "app/api/recommend/route.ts",
+        "app/api/mvp/route.ts"
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "dataType": "string",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 1
+        },
+        {
+          "name": "name",
+          "dataType": "string",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 2
+        },
+        {
+          "name": "brand",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 3
+        },
+        {
+          "name": "category",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 4
+        },
+        {
+          "name": "price",
+          "dataType": "integer",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 5
+        },
+        {
+          "name": "image_url",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 6
+        },
+        {
+          "name": "product_key",
+          "dataType": "string",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 7
+        },
+        {
+          "name": "created_at",
+          "dataType": "string",
+          "nullable": true,
+          "default": "now()",
+          "ordinalPosition": 8
+        },
+        {
+          "name": "source_site",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 9
+        },
+        {
+          "name": "source_url",
+          "dataType": "string",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 10
+        },
+        {
+          "name": "affiliate_url",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 11
+        },
+        {
+          "name": "material",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 12
+        },
+        {
+          "name": "width_cm",
+          "dataType": "number",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 13
+        },
+        {
+          "name": "depth_cm",
+          "dataType": "number",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 14
+        },
+        {
+          "name": "height_cm",
+          "dataType": "number",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 15
+        },
+        {
+          "name": "color_options",
+          "dataType": "jsonb",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 16
+        }
+      ],
+      "counts": {
+        "total": 28,
+        "filtered": {}
+      },
+      "sampleRow": {
+        "id": "47f9e98c-4379-41ac-8915-5b5c61fd7aa7",
+        "name": "LILLEHEM 릴레헴 2인용 모듈소파, 비슬레/베이지 목재",
+        "brand": "IKEA",
+        "category": "sofa",
+        "product_key": "ikea|lillehem 릴레헴 2인용 모듈소파, 비슬레/베이지 목재|sofa",
+        "created_at": "2026-03-20T11:53:35.877926"
+      }
+    },
+    {
+      "table": "spaces",
+      "exists": true,
+      "purpose": "Room analysis persistence before recommendation.",
+      "sourcePaths": [
+        "app/api/analyze-space/route.ts",
+        "app/api/recommend-space/route.ts",
+        "app/api/mvp/route.ts"
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "dataType": "string",
+          "nullable": false,
+          "default": "extensions.uuid_generate_v4()",
+          "ordinalPosition": 1
+        },
+        {
+          "name": "image_url",
+          "dataType": "string",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 2
+        },
+        {
+          "name": "brightness_score",
+          "dataType": "integer",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 3
+        },
+        {
+          "name": "color_temperature_score",
+          "dataType": "integer",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 4
+        },
+        {
+          "name": "spatial_density_score",
+          "dataType": "integer",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 5
+        },
+        {
+          "name": "minimalism_score",
+          "dataType": "integer",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 6
+        },
+        {
+          "name": "dominant_color_hex",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 7
+        },
+        {
+          "name": "created_at",
+          "dataType": "string",
+          "nullable": true,
+          "default": "now()",
+          "ordinalPosition": 8
+        },
+        {
+          "name": "contrast_score",
+          "dataType": "integer",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 9
+        },
+        {
+          "name": "colorfulness_score",
+          "dataType": "integer",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 10
+        }
+      ],
+      "counts": {
+        "total": 27,
+        "filtered": {}
+      },
+      "sampleRow": {
+        "id": "0b7c4d2b-2872-4fb7-9af8-53fc3cda74ac",
+        "image_url": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85",
+        "brightness_score": 75,
+        "minimalism_score": 50,
+        "created_at": "2026-03-22T23:19:23.327551"
+      }
+    },
+    {
+      "table": "recommendations",
+      "exists": true,
+      "purpose": "Recommendation click logging and result persistence.",
+      "sourcePaths": [
+        "app/api/log-click/route.ts",
+        "app/api/mvp/route.ts"
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "dataType": "string",
+          "nullable": false,
+          "default": "extensions.uuid_generate_v4()",
+          "ordinalPosition": 1
+        },
+        {
+          "name": "space_id",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 2
+        },
+        {
+          "name": "furniture_id",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 3
+        },
+        {
+          "name": "compatibility_score",
+          "dataType": "integer",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 4
+        },
+        {
+          "name": "clicked",
+          "dataType": "boolean",
+          "nullable": true,
+          "default": false,
+          "ordinalPosition": 5
+        },
+        {
+          "name": "saved",
+          "dataType": "boolean",
+          "nullable": true,
+          "default": false,
+          "ordinalPosition": 6
+        },
+        {
+          "name": "purchased",
+          "dataType": "boolean",
+          "nullable": true,
+          "default": false,
+          "ordinalPosition": 7
+        },
+        {
+          "name": "created_at",
+          "dataType": "string",
+          "nullable": true,
+          "default": "now()",
+          "ordinalPosition": 8
+        },
+        {
+          "name": "request_id",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 9
+        },
+        {
+          "name": "event_source",
+          "dataType": "string",
+          "nullable": true,
+          "default": "web",
+          "ordinalPosition": 10
+        }
+      ],
+      "counts": {
+        "total": 46,
+        "filtered": {}
+      },
+      "sampleRow": {
+        "id": "fa6d0ce8-3217-4137-bbb1-9a075fa050a1",
+        "request_id": "111369f4-3488-4cb6-a6ca-c9b51160ac54",
+        "clicked": false,
+        "created_at": "2026-03-22T23:19:24.584042"
+      }
+    },
+    {
+      "table": "import_jobs",
+      "exists": true,
+      "purpose": "Imported product normalization and review queue.",
+      "sourcePaths": [
+        "app/api/import-product/route.ts"
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "dataType": "string",
+          "nullable": false,
+          "default": "extensions.uuid_generate_v4()",
+          "ordinalPosition": 1
+        },
+        {
+          "name": "source_site",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 2
+        },
+        {
+          "name": "source_url",
+          "dataType": "string",
+          "nullable": false,
+          "default": null,
+          "ordinalPosition": 3
+        },
+        {
+          "name": "raw_payload",
+          "dataType": "jsonb",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 4
+        },
+        {
+          "name": "extracted_name",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 5
+        },
+        {
+          "name": "extracted_brand",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 6
+        },
+        {
+          "name": "extracted_category",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 7
+        },
+        {
+          "name": "extracted_price",
+          "dataType": "integer",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 8
+        },
+        {
+          "name": "extracted_material",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 9
+        },
+        {
+          "name": "extracted_width_cm",
+          "dataType": "number",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 10
+        },
+        {
+          "name": "extracted_depth_cm",
+          "dataType": "number",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 11
+        },
+        {
+          "name": "extracted_height_cm",
+          "dataType": "number",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 12
+        },
+        {
+          "name": "extracted_color_options",
+          "dataType": "jsonb",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 13
+        },
+        {
+          "name": "extracted_image_urls",
+          "dataType": "jsonb",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 14
+        },
+        {
+          "name": "status",
+          "dataType": "string",
+          "nullable": true,
+          "default": "pending",
+          "ordinalPosition": 15
+        },
+        {
+          "name": "review_note",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 16
+        },
+        {
+          "name": "created_at",
+          "dataType": "string",
+          "nullable": true,
+          "default": "now()",
+          "ordinalPosition": 17
+        },
+        {
+          "name": "updated_at",
+          "dataType": "string",
+          "nullable": true,
+          "default": "now()",
+          "ordinalPosition": 18
+        },
+        {
+          "name": "extracted_source_site",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 19
+        },
+        {
+          "name": "extracted_affiliate_url",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 20
+        },
+        {
+          "name": "extracted_size_label",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 21
+        },
+        {
+          "name": "extracted_capacity_label",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 22
+        },
+        {
+          "name": "extracted_source_variant_ids",
+          "dataType": "jsonb",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 23
+        },
+        {
+          "name": "extracted_option_summaries",
+          "dataType": "jsonb",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 24
+        },
+        {
+          "name": "extracted_confidence",
+          "dataType": "number",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 25
+        },
+        {
+          "name": "extraction_notes",
+          "dataType": "string",
+          "nullable": true,
+          "default": null,
+          "ordinalPosition": 26
+        }
+      ],
+      "counts": {
+        "total": 28,
+        "filtered": {}
+      },
+      "sampleRow": {
+        "id": "47f9e98c-4379-41ac-8915-5b5c61fd7aa7",
+        "source_url": "https://www.ikea.com/kr/ko/p/lillehem-2-seat-modular-sofa-vissle-beige-wood-s69471286/",
+        "status": "pending_review",
+        "created_at": "2026-03-20T11:53:35.877926",
+        "updated_at": "2026-03-20T11:53:35.877926"
+      }
+    }
+  ],
+  "blockers": [
+    "furniture_products currently has 0 active rows, so the catalog read path has no live active inventory."
+  ],
+  "nonBlockers": [
+    "furniture_vectors is reachable with 28 rows."
+  ]
+}

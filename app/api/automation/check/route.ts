@@ -3,15 +3,15 @@ export const runtime = "nodejs"
 import { NextResponse } from "next/server"
 import {
   automationRuntimeBridgeSafety,
-  buildAutomationRuntimeReadinessSummary,
+  buildAutomationRuntimeCheckSummary,
 } from "@/app/api/automation/contracts"
 
 export async function GET() {
   return NextResponse.json({
-    route: "/api/automation/readiness",
+    route: "/api/automation/check",
     routeVersion: "v1",
-    target: "automation-runtime-bridge",
-    readiness: buildAutomationRuntimeReadinessSummary(),
+    target: "automation-runtime-bridge-check",
+    check: buildAutomationRuntimeCheckSummary(),
     safety: automationRuntimeBridgeSafety,
   })
 }

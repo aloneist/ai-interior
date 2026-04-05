@@ -1,0 +1,166 @@
+{
+  "generatedAt": "2026-04-05T04:18:53.060Z",
+  "command": "npm run automation:connection:validate",
+  "reportKind": "automation_connection_loop_readiness",
+  "purpose": "program_connection_and_human_codex_loop_validation",
+  "overallStatus": "go",
+  "summary": {
+    "supabase": "ready",
+    "cloudinary": "ready",
+    "openai": "configured",
+    "executionLoop": "ready"
+  },
+  "connections": {
+    "supabase": {
+      "status": "ready",
+      "isReady": true,
+      "hardBlocker": false,
+      "env": {
+        "url": true,
+        "serviceRole": true
+      },
+      "checks": [
+        {
+          "id": "catalog-read-gateway",
+          "status": "pass",
+          "detail": "furniture_products active count reachable (0)"
+        },
+        {
+          "id": "mvp-vector-surface",
+          "status": "pass",
+          "detail": "furniture_vectors reachable (28)"
+        }
+      ],
+      "warnings": [
+        "The automation read-only catalog gateway is connected but currently sees 0 active furniture_products rows."
+      ],
+      "note": "Supabase read-only catalog access and current vector surface are both reachable."
+    },
+    "cloudinary": {
+      "status": "ready",
+      "isReady": true,
+      "hardBlocker": false,
+      "relevance": "optional_for_current_main_phase",
+      "env": {
+        "name": true,
+        "key": true,
+        "secret": true
+      },
+      "note": "Cloudinary admin ping succeeded (ok)."
+    },
+    "openai": {
+      "status": "configured",
+      "isReady": true,
+      "hardBlocker": false,
+      "note": "OPENAI_API_KEY is present for the current room-analysis/recommendation path."
+    }
+  },
+  "executionLoop": {
+    "status": "ready",
+    "isReady": true,
+    "checks": [
+      {
+        "id": "task-instruction",
+        "label": "Task instruction path",
+        "status": "ready",
+        "isReady": true,
+        "note": "Task files plus repo operating rules exist.",
+        "paths": [
+          {
+            "path": "AGENTS.md",
+            "present": true
+          },
+          {
+            "path": "docs/tasks",
+            "present": true
+          }
+        ]
+      },
+      {
+        "id": "codex-generation",
+        "label": "Codex code-generation path",
+        "status": "ready",
+        "isReady": true,
+        "note": "Codex operating guidance and runnable repo scripts exist.",
+        "paths": [
+          {
+            "path": "docs/ops/personal-codex-runbook.md",
+            "present": true
+          },
+          {
+            "path": "package.json",
+            "present": true
+          }
+        ]
+      },
+      {
+        "id": "automated-validation",
+        "label": "Automated validation path",
+        "status": "ready",
+        "isReady": true,
+        "note": "Lint/typecheck and automation validation surfaces are defined.",
+        "paths": [
+          {
+            "path": "package.json",
+            "present": true
+          },
+          {
+            "path": "automation/review-checklist.md",
+            "present": true
+          }
+        ]
+      },
+      {
+        "id": "user-review",
+        "label": "User review path",
+        "status": "ready",
+        "isReady": true,
+        "note": "Review checklist and operator runbook exist.",
+        "paths": [
+          {
+            "path": "automation/review-checklist.md",
+            "present": true
+          },
+          {
+            "path": "automation/operator-runbook.md",
+            "present": true
+          }
+        ]
+      },
+      {
+        "id": "final-approval",
+        "label": "Final approval path",
+        "status": "ready",
+        "isReady": true,
+        "note": "Final review, approval, closeout, and recording surfaces exist.",
+        "paths": [
+          {
+            "path": "automation/final-review.md",
+            "present": true
+          },
+          {
+            "path": "automation/baseline-approval.md",
+            "present": true
+          },
+          {
+            "path": "automation/baseline-closeout.md",
+            "present": true
+          },
+          {
+            "path": "automation/change-log-template.md",
+            "present": true
+          }
+        ]
+      }
+    ]
+  },
+  "conclusion": {
+    "overallStatus": "go",
+    "blockers": [],
+    "gaps": [
+      "The automation read-only catalog gateway is connected but currently sees 0 active furniture_products rows."
+    ],
+    "goNoGoReason": "The current repo has the minimum connection and loop surfaces needed to start real main-development work.",
+    "cloudinaryNote": "Cloudinary is connected."
+  }
+}

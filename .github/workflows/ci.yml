@@ -42,5 +42,83 @@ jobs:
           path: ${{ runner.temp }}/automation-smoke-report.json
           if-no-files-found: warn
 
+      - name: Automation runtime HTTP verification
+        env:
+          AUTOMATION_RUNTIME_VERIFY_REPORT_PATH: ${{ runner.temp }}/automation-runtime-http-verify-report.json
+        run: |
+          set -o pipefail
+          npm run automation:runtime:http:verify 2>&1 | tee "${RUNNER_TEMP}/automation-runtime-http-verify.log"
+
+      - name: Upload automation runtime HTTP verifier diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-runtime-http-verify-log
+          path: ${{ runner.temp }}/automation-runtime-http-verify.log
+          if-no-files-found: warn
+
+      - name: Upload automation runtime HTTP verifier report artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-runtime-http-verify-report
+          path: ${{ runner.temp }}/automation-runtime-http-verify-report.json
+          if-no-files-found: warn
+
+      - name: Automation runtime inspection report
+        env:
+          AUTOMATION_RUNTIME_INSPECT_REPORT_PATH: ${{ runner.temp }}/automation-runtime-inspect-report.json
+        run: npm run automation:runtime:inspect
+
+      - name: Upload automation runtime inspection report artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-runtime-inspect-report
+          path: ${{ runner.temp }}/automation-runtime-inspect-report.json
+          if-no-files-found: warn
+
+      - name: Automation runtime combined check report
+        env:
+          AUTOMATION_RUNTIME_INSPECT_SOURCE_PATH: ${{ runner.temp }}/automation-runtime-inspect-report.json
+          AUTOMATION_RUNTIME_VERIFY_SOURCE_PATH: ${{ runner.temp }}/automation-runtime-http-verify-report.json
+          AUTOMATION_RUNTIME_CHECK_REPORT_PATH: ${{ runner.temp }}/automation-runtime-check-report.json
+          AUTOMATION_RUNTIME_ARTIFACT_MANIFEST_PATH: ${{ runner.temp }}/automation-runtime-artifact-manifest.json
+        run: npm run automation:runtime:check
+
+      - name: Upload automation runtime combined check report artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-runtime-check-report
+          path: ${{ runner.temp }}/automation-runtime-check-report.json
+          if-no-files-found: warn
+
+      - name: Upload automation runtime artifact manifest
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-runtime-artifact-manifest
+          path: ${{ runner.temp }}/automation-runtime-artifact-manifest.json
+          if-no-files-found: warn
+
+      - name: Automation readiness report
+        env:
+          AUTOMATION_SMOKE_SOURCE_PATH: ${{ runner.temp }}/automation-smoke-report.json
+          AUTOMATION_RUNTIME_INSPECT_SOURCE_PATH: ${{ runner.temp }}/automation-runtime-inspect-report.json
+          AUTOMATION_RUNTIME_VERIFY_SOURCE_PATH: ${{ runner.temp }}/automation-runtime-http-verify-report.json
+          AUTOMATION_RUNTIME_CHECK_SOURCE_PATH: ${{ runner.temp }}/automation-runtime-check-report.json
+          AUTOMATION_RUNTIME_MANIFEST_SOURCE_PATH: ${{ runner.temp }}/automation-runtime-artifact-manifest.json
+          AUTOMATION_READINESS_REPORT_PATH: ${{ runner.temp }}/automation-readiness-report.json
+        run: npm run automation:readiness:report
+
+      - name: Upload automation readiness report artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: automation-readiness-report
+          path: ${{ runner.temp }}/automation-readiness-report.json
+          if-no-files-found: warn
+
       - name: Build
         run: npm run build
