@@ -3,26 +3,18 @@ export const runtime = "nodejs"
 import { NextResponse } from "next/server"
 import { getOpenAIClient } from "@/lib/server/openai"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
-
-type FurnitureRecord = {
-  id: string
-  name: string | null
-  brand: string | null
-  category: string | null
-  price: number | null
-  image_url: string | null
-  product_key: string | null
-  created_at: string | null
-}
+import { loadRuntimeFurnitureRecordsByIds } from "@/lib/server/furniture-catalog"
+import type { RuntimeFurnitureRecord as FurnitureRecord } from "@/lib/server/furniture-catalog"
+import { rankFurnitureForRecommendations } from "@/lib/server/recommendation-ranking"
 
 type FurnitureVectorRow = {
+  furniture_id: string
   brightness_compatibility: number | null
   color_temperature_score: number | null
   spatial_footprint_score: number | null
   minimalism_score: number | null
   contrast_score: number | null
   colorfulness_score: number | null
-  furniture: FurnitureRecord | FurnitureRecord[] | null
 }
 
 type ScoredFurniture = FurnitureRecord & {
@@ -105,16 +97,6 @@ export async function POST(req: Request) {
     })
     const trust_note = trustNote(trust_score)
 
-    // 3) 가중치
-    const weights = {
-      brightness: 0.2,
-      temperature: 0.2,
-      footprint: 0.2,
-      minimalism: 0.2,
-      contrast: 0.1,
-      colorfulness: 0.1,
-    }
-
     // 4) 모든 가구 벡터 + 상품 정보 가져오기
     const { data: vectors, error: vecErr } = await supabase
       .from("furniture_vectors")
@@ -125,56 +107,33 @@ export async function POST(req: Request) {
         spatial_footprint_score,
         minimalism_score,
         contrast_score,
-        colorfulness_score,
-        furniture:furniture_id (
-          id, name, brand, category, price, image_url, product_key, created_at
-        )
+        colorfulness_score
       `)
 
     if (vecErr) throw vecErr
 
-    // 5) 점수 계산
-    const scored = (vectors as FurnitureVectorRow[])
-      .map((item) => {
-      const furniture = Array.isArray(item.furniture) ? item.furniture[0] : item.furniture
-      if (!furniture) return null
-      const d =
-        weights.brightness * Math.abs((item.brightness_compatibility ?? 50) - brightness) +
-        weights.temperature * Math.abs((item.color_temperature_score ?? 50) - temperature) +
-        weights.footprint * Math.abs((item.spatial_footprint_score ?? 50) - footprint) +
-        weights.minimalism * Math.abs((item.minimalism_score ?? 50) - minimalism) +
-        weights.contrast * Math.abs((item.contrast_score ?? 50) - contrast) +
-        weights.colorfulness * Math.abs((item.colorfulness_score ?? 50) - colorfulness)
+    const typedVectors = (vectors ?? []) as FurnitureVectorRow[]
+    const furnitureById = await loadRuntimeFurnitureRecordsByIds(
+      supabase,
+      typedVectors.map((item) => item.furniture_id)
+    )
 
-      const score = 100 - d
-
-      return {
-        ...furniture,
-        recommendation_score: Math.round(score),
-      }
+    const ranked = rankFurnitureForRecommendations({
+      vectors: typedVectors,
+      furnitureById,
+      targets: {
+        brightness,
+        temperature,
+        footprint,
+        minimalism,
+        contrast,
+        colorfulness,
+      },
+      limit: 3,
     })
-      .filter(isScoredFurniture)
-
-    // 6) 정렬
-    scored.sort((a, b) => b.recommendation_score - a.recommendation_score)
-
-    // 7) dedupe (product_key 우선)
-    const seen = new Set<string>()
-    const deduped: ScoredFurniture[] = []
-
-    for (const item of scored) {
-      const key =
-        item.product_key ||
-        item.image_url ||
-        `${(item.brand ?? "").toLowerCase()}|${(item.name ?? "").toLowerCase()}|${(item.category ?? "").toLowerCase()}`
-
-      if (seen.has(key)) continue
-      seen.add(key)
-      deduped.push(item)
-    }
 
     // 8) Top3
-    const top3 = deduped.slice(0, 3)
+    const top3 = ranked.items.filter(isScoredFurniture)
 
     // 9) 추천 이유 생성 (OpenAI 1회 호출)
     const explainRes = await openai.chat.completions.create({
@@ -278,6 +237,7 @@ Return format:
       trust_score,
       trust_note,
       recommendations: top3WithReasons,
+      quality_summary: ranked.qualitySummary,
     })
     } catch (err: unknown) {
     console.error("RECOMMEND SPACE ERROR:", err)

@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getOpenAIClient } from "@/lib/server/openai";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
+import { IMPORT_JOB_STATUS } from "@/lib/server/furniture-catalog";
 import { parseIkeaPayload } from "@/lib/parsers";
 import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
 import {
@@ -437,7 +438,7 @@ Rules:
       extracted_affiliate_url: normalizedUrl,
       extracted_confidence: parseNumberOrNull(enriched.extracted_confidence),
 
-      status: "pending_review",
+      status: IMPORT_JOB_STATUS.pendingReview,
     };
 
     const { data: importJob, error: importError } = await supabase

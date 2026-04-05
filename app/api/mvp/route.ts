@@ -4,6 +4,10 @@ import { NextResponse } from "next/server"
 import { getOpenAIClient } from "@/lib/server/openai"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 import {
+  loadRuntimeFurnitureRecordsByIds,
+} from "@/lib/server/furniture-catalog"
+import { rankFurnitureForRecommendations } from "@/lib/server/recommendation-ranking"
+import {
   buildRecommendationGroups,
   type GroupableFurniture,
 } from "@/lib/mvp/grouping"
@@ -24,17 +28,6 @@ type ScoredFurniture = GroupableFurniture & {
   created_at?: string | null
 }
 
-type FurnitureRecord = {
-  id: string
-  name: string
-  brand: string | null
-  category: string | null
-  price: number | null
-  image_url: string | null
-  product_key?: string | null
-  created_at?: string | null
-}
-
 type FurnitureVectorRow = {
   furniture_id: string
   brightness_compatibility: number | null
@@ -43,7 +36,6 @@ type FurnitureVectorRow = {
   minimalism_score: number | null
   contrast_score: number | null
   colorfulness_score: number | null
-  furniture: FurnitureRecord | FurnitureRecord[] | null
 }
 
 type ExplainReason = {
@@ -78,16 +70,6 @@ function buildExternalProductUrl(item: {
   return `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(
     query
   )}`
-}
-
-function normalizeFurnitureRecord(
-  furniture: FurnitureVectorRow["furniture"]
-): FurnitureRecord | null {
-  if (Array.isArray(furniture)) {
-    return furniture[0] ?? null
-  }
-
-  return furniture
 }
 
 function getErrorMessage(error: unknown) {
@@ -179,15 +161,6 @@ export async function POST(req: Request) {
       colorfulness,
     })
 
-    const weights = {
-      brightness: 0.2,
-      temperature: 0.2,
-      footprint: 0.2,
-      minimalism: 0.2,
-      contrast: 0.1,
-      colorfulness: 0.1,
-    }
-
     const { data: vectors, error: vecErr } = await supabase
       .from("furniture_vectors")
       .select(`
@@ -197,66 +170,47 @@ export async function POST(req: Request) {
         spatial_footprint_score,
         minimalism_score,
         contrast_score,
-        colorfulness_score,
-        furniture:furniture_id (
-          id, name, brand, category, price, image_url, product_key, created_at
-        )
+        colorfulness_score
       `)
 
     if (vecErr) throw vecErr
 
     const typedVectors = (vectors ?? []) as FurnitureVectorRow[]
+    const furnitureById = await loadRuntimeFurnitureRecordsByIds(
+      supabase,
+      typedVectors.map((item) => item.furniture_id)
+    )
 
-        const scored: ScoredFurniture[] = typedVectors
-      .map((item): ScoredFurniture | null => {
-        const furnitureRecord = normalizeFurnitureRecord(item.furniture)
-        if (!furnitureRecord) return null
+    const ranked = rankFurnitureForRecommendations({
+      vectors: typedVectors,
+      furnitureById,
+      targets: {
+        brightness,
+        temperature,
+        footprint,
+        minimalism,
+        contrast,
+        colorfulness,
+      },
+      userInput: {
+        roomType,
+        styles,
+        budget,
+        furniture,
+        requestText,
+      },
+      limit: 10,
+    })
 
-        const d =
-          weights.brightness *
-            Math.abs((item.brightness_compatibility ?? 50) - brightness) +
-          weights.temperature *
-            Math.abs((item.color_temperature_score ?? 50) - temperature) +
-          weights.footprint *
-            Math.abs((item.spatial_footprint_score ?? 50) - footprint) +
-          weights.minimalism *
-            Math.abs((item.minimalism_score ?? 50) - minimalism) +
-          weights.contrast * Math.abs((item.contrast_score ?? 50) - contrast) +
-          weights.colorfulness *
-            Math.abs((item.colorfulness_score ?? 50) - colorfulness)
+    const rankedItems: ScoredFurniture[] = ranked.items.map((item) => ({
+      ...item,
+      external_url: buildExternalProductUrl(item),
+    }))
 
-        const score = 100 - d
-
-        return {
-          ...furnitureRecord,
-          recommendation_score: Math.round(score),
-          external_url: buildExternalProductUrl(furnitureRecord),
-        }
-      })
-      .filter((item): item is ScoredFurniture => item !== null)
-
-    scored.sort((a, b) => b.recommendation_score - a.recommendation_score)
-
-    const seen = new Set<string>()
-    const deduped: ScoredFurniture[] = []
-
-    for (const item of scored) {
-      const key =
-        item.product_key ||
-        item.image_url ||
-        `${(item.brand ?? "").toLowerCase()}|${(item.name ?? "").toLowerCase()}|${(
-          item.category ?? ""
-        ).toLowerCase()}`
-
-      if (seen.has(key)) continue
-      seen.add(key)
-      deduped.push(item)
-    }
-
-    const top3 = deduped.slice(0, 3)
+    const top3 = rankedItems.slice(0, 3)
 
     const recommendationGroups = buildRecommendationGroups({
-      items: deduped,
+      items: rankedItems,
       roomLabels,
       userInput: {
         roomType,
@@ -267,18 +221,21 @@ export async function POST(req: Request) {
       },
     })
 
-    await supabase.from("recommendations").insert(
-      top3.map((item) => ({
-        request_id,
-        event_source: "web",
-        space_id: spaceRow.id,
-        furniture_id: item.id,
-        compatibility_score: item.recommendation_score,
-        clicked: false,
-        saved: false,
-        purchased: false,
-      }))
-    )
+    const { error: recommendationsInsertError } = await supabase
+      .from("recommendations")
+      .insert(
+        top3.map((item) => ({
+          request_id,
+          event_source: "web",
+          space_id: spaceRow.id,
+          furniture_id: item.id,
+          compatibility_score: item.recommendation_score,
+          clicked: false,
+          saved: false,
+        }))
+      )
+
+    if (recommendationsInsertError) throw recommendationsInsertError
 
     const explainRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -370,6 +327,7 @@ export async function POST(req: Request) {
       trust_note,
       recommendations: top3WithReasons,
       grouped_recommendations: groupedRecommendations,
+      quality_summary: ranked.qualitySummary,
     })
   } catch (err: unknown) {
     console.error("MVP API ERROR:", err)

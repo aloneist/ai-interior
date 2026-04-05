@@ -2,31 +2,21 @@ export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
-
-type RecommendationFurniture = {
-  product_key?: string | null
-  image_url?: string | null
-  brand?: string | null
-  name?: string | null
-  category?: string | null
-  [key: string]: unknown
-}
+import { loadRuntimeFurnitureRecordsByIds } from "@/lib/server/furniture-catalog"
+import { rankFurnitureForRecommendations } from "@/lib/server/recommendation-ranking"
+import type { UserPreferenceInput } from "@/lib/mvp/scoring"
 
 type FurnitureVectorRow = {
-  brightness_compatibility: number
-  color_temperature_score: number
-  spatial_footprint_score: number
+  furniture_id: string
+  brightness_compatibility: number | null
+  color_temperature_score: number | null
+  spatial_footprint_score: number | null
   minimalism_score: number
   contrast_score: number | null
   colorfulness_score: number | null
-  furniture: RecommendationFurniture | RecommendationFurniture[] | null
 }
 
-type ScoredRecommendation = RecommendationFurniture & {
-  recommendation_score: number
-}
-
-type RecommendationRequest = {
+type RecommendationRequest = UserPreferenceInput & {
   brightness: number
   temperature: number
   footprint: number
@@ -44,16 +34,12 @@ export async function POST(req: Request) {
       minimalism,
       contrast,
       colorfulness,
+      roomType,
+      styles,
+      budget,
+      furniture,
+      requestText,
     } = (await req.json()) as RecommendationRequest
-
-    const weights = {
-      brightness: 0.2,
-      temperature: 0.2,
-      footprint: 0.2,
-      minimalism: 0.2,
-      contrast: 0.1,
-      colorfulness: 0.1,
-    }
 
     const supabase = getSupabaseAdminClient()
 
@@ -66,54 +52,41 @@ export async function POST(req: Request) {
         spatial_footprint_score,
         minimalism_score,
         contrast_score,
-        colorfulness_score,
-        furniture:furniture_id (*)
+        colorfulness_score
       `)
 
     if (error) throw error
 
-    const scored = ((vectors ?? []) as FurnitureVectorRow[]).map(
-      (item): ScoredRecommendation => {
-      const furniture = Array.isArray(item.furniture) ? item.furniture[0] : item.furniture
-      const d =
-        weights.brightness * Math.abs(item.brightness_compatibility - brightness) +
-        weights.temperature * Math.abs(item.color_temperature_score - temperature) +
-        weights.footprint * Math.abs(item.spatial_footprint_score - footprint) +
-        weights.minimalism * Math.abs(item.minimalism_score - minimalism) +
-        weights.contrast * Math.abs((item.contrast_score ?? 50) - contrast) +
-        weights.colorfulness * Math.abs((item.colorfulness_score ?? 50) - colorfulness)
-
-      const score = 100 - d
-
-      return {
-        ...(furniture ?? {}),
-        recommendation_score: Math.round(score),
-      }
-      }
+    const furnitureById = await loadRuntimeFurnitureRecordsByIds(
+      supabase,
+      ((vectors ?? []) as FurnitureVectorRow[]).map((item) => item.furniture_id)
     )
 
-    scored.sort((a, b) => b.recommendation_score - a.recommendation_score)
-
-    // ✅ Step 3: dedupe (같은 제품 1개만 남기기)
-    const seen = new Set<string>()
-    const deduped: ScoredRecommendation[] = []
-
-    for (const item of scored) {
-      // product_key가 있으면 최우선
-      const key =
-        item.product_key ||
-        item.image_url ||
-        `${(item.brand ?? "").toLowerCase()}|${(item.name ?? "").toLowerCase()}|${(item.category ?? "").toLowerCase()}`
-
-      if (seen.has(key)) continue
-
-      seen.add(key)
-      deduped.push(item)
-    }
+    const ranked = rankFurnitureForRecommendations({
+      vectors: (vectors ?? []) as FurnitureVectorRow[],
+      furnitureById,
+      targets: {
+        brightness,
+        temperature,
+        footprint,
+        minimalism,
+        contrast,
+        colorfulness,
+      },
+      userInput: {
+        roomType,
+        styles,
+        budget,
+        furniture,
+        requestText,
+      },
+      limit: 10,
+    })
 
     return NextResponse.json({
       success: true,
-      recommendations: deduped.slice(0, 10),
+      recommendations: ranked.items,
+      quality_summary: ranked.qualitySummary,
     })
   } catch (err: unknown) {
     console.error(err)

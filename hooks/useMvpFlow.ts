@@ -248,11 +248,42 @@ export default function useMvpFlow({
   }
 
   const toggleSavedProduct = (productId: string) => {
-    setSavedProductIds((prev) =>
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
-    )
+    const currentlySaved = savedProductIds.includes(productId)
+    const nextSaved = !currentlySaved
+    const applySavedState = (ids: string[], saved: boolean) => {
+      if (saved) {
+        return [...new Set([...ids, productId])]
+      }
+
+      return ids.filter((id) => id !== productId)
+    }
+
+    setSavedProductIds((prev) => applySavedState(prev, nextSaved))
+
+    if (!data?.request_id) {
+      return
+    }
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/log-save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            request_id: data.request_id,
+            furniture_id: productId,
+            saved: nextSaved,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Save update failed")
+        }
+      } catch (error) {
+        console.error("SAVE TOGGLE ERROR:", error)
+        setSavedProductIds((prev) => applySavedState(prev, currentlySaved))
+      }
+    })()
   }
 
   const toggleComparedProduct = (productId: string) => {

@@ -89,6 +89,21 @@ export type ScoredFurnitureLike = {
   recommendation_score: number
 }
 
+const FURNITURE_TYPE_KEYWORDS = {
+  sofa: ["sofa", "소파", "couch", "sectional", "loveseat"],
+  chair: [
+    "chair",
+    "의자",
+    "암체어",
+    "armchair",
+    "stool",
+    "스툴",
+    "bench",
+    "벤치",
+  ],
+  table: ["table", "테이블", "desk", "책상", "dining table", "side table"],
+} as const
+
 const BEDROOM_CATEGORY_KEYWORDS = {
   bed: ["bed", "침대", "mattress", "매트리스", "bed frame", "침대 프레임"],
   nightstand: [
@@ -117,6 +132,42 @@ const BEDROOM_CATEGORY_KEYWORDS = {
 
 function getFurnitureText(item: Pick<ScoredFurnitureLike, "name" | "category">) {
   return normalizeText([item.category, item.name].filter(Boolean).join(" "))
+}
+
+function matchesFurnitureType(
+  item: Pick<ScoredFurnitureLike, "name" | "category">,
+  furnitureType: keyof typeof FURNITURE_TYPE_KEYWORDS
+) {
+  return includesAnyKeyword(
+    getFurnitureText(item),
+    FURNITURE_TYPE_KEYWORDS[furnitureType]
+  )
+}
+
+export function matchesFurniturePreference(
+  item: Pick<ScoredFurnitureLike, "name" | "category">,
+  furnitureType: string
+) {
+  const normalizedFurnitureType = normalizeText(furnitureType)
+
+  if (
+    normalizedFurnitureType === "sofa" ||
+    normalizedFurnitureType === "chair" ||
+    normalizedFurnitureType === "table"
+  ) {
+    return matchesFurnitureType(item, normalizedFurnitureType)
+  }
+
+  return includesAnyKeyword(getFurnitureText(item), [normalizedFurnitureType])
+}
+
+export function matchesAnyFurniturePreference(
+  item: Pick<ScoredFurnitureLike, "name" | "category">,
+  furnitureTypes: string[]
+) {
+  return furnitureTypes.some((furnitureType) =>
+    matchesFurniturePreference(item, furnitureType)
+  )
 }
 
 function getBedroomCategoryWeight(item: ScoredFurnitureLike) {
@@ -159,11 +210,10 @@ export function scoreFurnitureByRoomType(
   }
 
   const weights = ROOM_TYPE_CATEGORY_WEIGHTS[room]
-  const text = getFurnitureText(item)
 
-  if (includesAnyKeyword(text, ["sofa"])) return weights.sofa
-  if (includesAnyKeyword(text, ["chair"])) return weights.chair
-  if (includesAnyKeyword(text, ["table"])) return weights.table
+  if (matchesFurnitureType(item, "sofa")) return weights.sofa
+  if (matchesFurnitureType(item, "chair")) return weights.chair
+  if (matchesFurnitureType(item, "table")) return weights.table
 
   return weights.default
 }
@@ -185,7 +235,7 @@ export function scoreFurnitureByUserInput(
   const budget = normalizeText(userInput?.budget)
 
   if (selectedFurniture.length > 0) {
-    if (selectedFurniture.includes(category)) {
+    if (matchesAnyFurniturePreference(item, selectedFurniture)) {
       bonus += FURNITURE_MATCH_BONUSES.matched
     } else {
       bonus += FURNITURE_MATCH_BONUSES.unmatched
@@ -307,7 +357,7 @@ export function buildPreferredFurniturePool<
   if (selectedFurniture.length === 0) return items
 
   const preferred = items.filter((item) =>
-    selectedFurniture.includes(normalizeText(item.category))
+    matchesAnyFurniturePreference(item, selectedFurniture)
   )
 
   if (preferred.length >= 2) return preferred

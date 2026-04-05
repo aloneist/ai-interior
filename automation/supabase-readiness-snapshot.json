@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-05T06:26:42.741Z",
+  "generatedAt": "2026-04-05T11:44:18.776Z",
   "command": "npm run supabase:readiness:snapshot",
   "artifacts": {
     "snapshot": "automation/supabase-readiness-snapshot.json",
@@ -553,15 +553,10 @@
         }
       ],
       "counts": {
-        "total": 46,
+        "total": 0,
         "filtered": {}
       },
-      "sampleRow": {
-        "id": "fa6d0ce8-3217-4137-bbb1-9a075fa050a1",
-        "request_id": "111369f4-3488-4cb6-a6ca-c9b51160ac54",
-        "clicked": false,
-        "created_at": "2026-03-22T23:19:24.584042"
-      }
+      "sampleRow": null
     },
     {
       "table": "import_jobs",

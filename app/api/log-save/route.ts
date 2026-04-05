@@ -7,14 +7,16 @@ import {
 } from "@/lib/server/recommendation-actions"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
-type LogClickRequest = {
+type LogSaveRequest = {
   request_id: string
   furniture_id: string
+  saved: boolean
 }
 
 export async function POST(req: Request) {
   try {
-    const { request_id, furniture_id } = (await req.json()) as LogClickRequest
+    const { request_id, furniture_id, saved } =
+      (await req.json()) as LogSaveRequest
 
     const validation = validateRecommendationActionRequest({
       request_id,
@@ -28,13 +30,19 @@ export async function POST(req: Request) {
       )
     }
 
-    const supabase = getSupabaseAdminClient()
+    if (typeof saved !== "boolean") {
+      return NextResponse.json(
+        { error: "saved must be a boolean" },
+        { status: 400 }
+      )
+    }
 
+    const supabase = getSupabaseAdminClient()
     const data = await updateRecommendationAction({
       supabase,
       request_id,
       furniture_id,
-      patch: { clicked: true },
+      patch: { saved },
     })
 
     if (!data) {
@@ -46,13 +54,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, updated: data })
   } catch (err: unknown) {
-    console.error("LOG CLICK ERROR:", err)
+    console.error("LOG SAVE ERROR:", err)
 
-    const message =
-      err instanceof Error ? err.message : "Log click failed"
+    const message = err instanceof Error ? err.message : "Log save failed"
 
     return NextResponse.json(
-      { error: "Log click failed", message },
+      { error: "Log save failed", message },
       { status: 500 }
     )
   }

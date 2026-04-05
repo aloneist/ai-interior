@@ -1,6 +1,6 @@
 # Supabase Direct Readiness Summary
 
-- Generated: 2026-04-05T06:26:42.741Z
+- Generated: 2026-04-05T11:44:18.776Z
 - Command: `npm run supabase:readiness:snapshot`
 - Conclusion: partial - Direct schema reads work, but critical tables are empty: furniture_products.
 
@@ -17,7 +17,7 @@
 - `spaces`: present, total=27, columns=10, sample_row=present
   columns: id, image_url, brightness_score, color_temperature_score, spatial_density_score, minimalism_score, dominant_color_hex, created_at
   purpose: Room analysis persistence before recommendation.
-- `recommendations`: present, total=46, columns=10, sample_row=present
+- `recommendations`: present, total=0, columns=10, sample_row=empty
   columns: id, space_id, furniture_id, compatibility_score, clicked, saved, purchased, created_at
   purpose: Recommendation click logging and result persistence.
 - `import_jobs`: present, total=28, columns=26, sample_row=present
