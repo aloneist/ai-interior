@@ -101,19 +101,3 @@ export async function sendN8nWebhookDelivery(
     clearTimeout(timeoutId)
   }
 }
-
-export function sendN8nWebhookPlaceholder(
-  payload: N8nApprovalHandoffPayload
-): N8nWebhookDeliveryResult {
-  return {
-    target: payload.target,
-    deliveryMode: "webhook",
-    attempted: false,
-    delivered: false,
-    status: "not_configured",
-    reason:
-      "No n8n webhook URL configured. AUTOMATION_APPROVAL_WEBHOOK_URL must contain an http(s) webhook URL for automation approval delivery.",
-    payloadRequestId: payload.requestId,
-    payloadByteLength: Buffer.byteLength(JSON.stringify(payload), "utf8"),
-  }
-}

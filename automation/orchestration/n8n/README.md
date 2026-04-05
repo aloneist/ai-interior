@@ -23,8 +23,6 @@ Current scaffold note:
 - `approval-response-webhook-intake.ts` defines the v1 narrow real inbound webhook intake path for approval responses
 - that inbound webhook path now expects an `authorization` header with `Bearer AUTOMATION_APPROVAL_WEBHOOK_SECRET`
 - untrusted inbound approval-response requests are blocked before intake normalization
-- `app/api/automation/approval-response/route.ts` now exposes that same inbound path through the main app runtime with explicit caller-provided approval context
-- `app/api/automation/readiness/route.ts` now exposes a safe summary-only readiness view for automation runtime bridging
 - `webhook-placeholder-sender.ts` now defines the v1 narrow real webhook sender boundary for approval-required handoff
 - the sender only attempts delivery when `AUTOMATION_APPROVAL_WEBHOOK_URL` contains an `http(s)` webhook URL
 - execution may surface that payload on approval-required results and attempt webhook delivery

@@ -14,11 +14,8 @@ Next-phase handoff:
 ## Verified Evidence
 
 - `automation-smoke-report`
-- `automation-runtime-inspect-report`
-- `automation-runtime-http-verify-report`
-- `automation-runtime-check-report`
-- `automation-runtime-artifact-manifest`
-- `automation-readiness-report`
+- `automation/connection-loop-readiness.json`
+- lint, typecheck, and build results
 
 ## What Is Complete Now
 
@@ -26,7 +23,7 @@ Next-phase handoff:
 - approval-required write path stops at the approval boundary
 - outbound approval handoff delivery exists for approval-required flows only
 - inbound approval-response auth and normalization exist without execution resume
-- smoke, runtime, manifest, and readiness artifacts exist for review and CI
+- smoke and connection-loop validation exist for review and CI
 - approval, final-review, and closeout docs now define the current baseline
 
 ## What Is Intentionally Deferred

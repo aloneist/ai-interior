@@ -12,8 +12,6 @@ Current status:
 - scaffold plus narrow automation-only contracts
 - narrow real outbound webhook delivery for approval-required handoff only
 - narrow receive-side approval response normalization and reviewer summary only
-- narrow app runtime bridge routes now exist for approval-response intake, approval-boundary simulation, outbound webhook verification, safe readiness summary, concise status summary, concise runtime snapshot, concise runtime check, route inventory inspection, approval-response sample discovery, and overview inspection
-- operator-friendly local commands now exist for runtime bridge inspection and fixed approval-boundary simulation
 - no product runtime usage
 - webhook env setup documented in [env-setup.md](/workspaces/ai-interior/automation/env-setup.md)
 - connection and human/Codex loop readiness documented in [connection-loop-readiness.md](/workspaces/ai-interior/automation/connection-loop-readiness.md)
@@ -30,8 +28,7 @@ Current status:
 Top-level folders:
 - `capabilities/`: automation-facing contracts and registry placeholders
 - `providers/`: provider-specific placeholder areas
-- `orchestration/`: future workflow and approval routing structure
-- `ci/`: future repository quality gate structure
+- `orchestration/`: approval handoff and response contract structure
 
 Operator review order:
 - [next-phase-handoff.md](/workspaces/ai-interior/automation/next-phase-handoff.md)

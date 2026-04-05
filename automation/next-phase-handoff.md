@@ -14,11 +14,10 @@ The current automation phase ends when:
 - the baseline is explicitly closed
 - the required evidence remains aligned:
   - `automation-smoke-report`
-  - `automation-runtime-inspect-report`
-  - `automation-runtime-http-verify-report`
-  - `automation-runtime-check-report`
-  - `automation-runtime-artifact-manifest`
-  - `automation-readiness-report`
+  - `automation/connection-loop-readiness.json`
+  - lint result
+  - typecheck result
+  - build result
 
 ## Evidence Required Before Handoff
 
@@ -28,7 +27,7 @@ Confirm these before handoff:
 2. [baseline-closeout.md](/workspaces/ai-interior/automation/baseline-closeout.md)
 3. [baseline-approval.md](/workspaces/ai-interior/automation/baseline-approval.md)
 4. [final-review.md](/workspaces/ai-interior/automation/final-review.md)
-5. the six required artifacts listed above
+5. the required evidence listed above
 
 ## Next Phase Starts With
 

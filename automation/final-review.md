@@ -19,8 +19,7 @@ Decision summary:
   - `catalog.write.safe` approval boundary
 - outbound approval handoff delivery for approval-required flows only
 - inbound approval-response auth and normalization without execution resume
-- runtime inspection, verification, combined runtime check, runtime artifact
-  manifest, and automation readiness report artifacts
+- connection-loop validation for direct-access readiness
 - operator-facing review docs for env setup, contract map, runbook, and review
   checklist
 
@@ -29,11 +28,10 @@ Decision summary:
 Check these in order:
 
 1. `automation-smoke-report`
-2. `automation-runtime-inspect-report`
-3. `automation-runtime-http-verify-report`
-4. `automation-runtime-check-report`
-5. `automation-runtime-artifact-manifest`
-6. `automation-readiness-report`
+2. `automation/connection-loop-readiness.json`
+3. lint result
+4. typecheck result
+5. build result
 
 Use the existing command and artifact guidance in:
 - [operator-runbook.md](/workspaces/ai-interior/automation/operator-runbook.md)
@@ -46,9 +44,8 @@ Use the existing command and artifact guidance in:
 Treat the current automation baseline as approved only when:
 
 - smoke passes and still shows blocked write-path behavior
-- runtime verify passes and still shows no-secret / no-resume boundaries
-- runtime inspect, runtime check, and runtime artifact manifest stay aligned
-- automation readiness report is `PASS`
+- connection-loop validation stays `go`
+- lint, typecheck, and build stay green
 - docs and checklist/template references still match the current artifact set
 
 Use [baseline-approval.md](/workspaces/ai-interior/automation/baseline-approval.md)

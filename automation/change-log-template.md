@@ -45,7 +45,7 @@ Note:
 - Final-review bundle result:
 - Baseline-approval bundle result:
 - Baseline-closeout bundle result:
-- Readiness artifact result:
+- Connection-loop validation result:
 - Smoke/CI alignment:
   - Did the exit code remain the primary CI signal?
   - Did `FINAL SUMMARY` remain the primary human quick read?
@@ -53,11 +53,8 @@ Note:
   - Was the `automation-smoke-report` CI artifact checked when needed?
   - If the artifact was missing, was that noted explicitly?
 - Runtime/final-review artifact alignment:
-  - Was `automation-runtime-inspect-report` checked when needed?
-  - Was `automation-runtime-http-verify-report` checked when needed?
-  - Was `automation-runtime-check-report` checked when needed?
-  - Was `automation-runtime-artifact-manifest` checked when needed?
-  - Was `automation-readiness-report` checked when needed?
+  - Was `automation/connection-loop-readiness.json` checked when needed?
+  - Were lint, typecheck, and build results checked when needed?
   - Did the final-review docs/checklist stay aligned with the current artifact set?
   - Did the baseline-approval doc stay aligned with the current decision path and artifact set?
 

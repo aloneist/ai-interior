@@ -14,12 +14,7 @@
     "supabase:readiness:snapshot": "node scripts/supabase-readiness-snapshot.mjs",
     "automation:smoke": "node automation/demo/run-smoke-test.cjs",
     "automation:smoke:report": "node automation/demo/run-smoke-report.mjs",
-    "automation:runtime:http:verify": "node automation/demo/verify-runtime-bridges-http.mjs",
-    "automation:runtime:inspect": "node automation/demo/inspect-runtime-bridges.mjs",
-    "automation:runtime:check": "node automation/demo/run-runtime-check.mjs",
-    "automation:readiness:report": "node automation/demo/run-automation-readiness-report.mjs",
     "automation:connection:validate": "node automation/demo/run-connection-loop-validation.mjs",
-    "automation:runtime:approval-boundary:test": "node automation/demo/test-approval-boundary-route.mjs",
     "reset": "rm -rf node_modules .next package-lock.json && npm install",
     "dev:reset": "rm -rf node_modules .next package-lock.json && npm install && next dev"
   },

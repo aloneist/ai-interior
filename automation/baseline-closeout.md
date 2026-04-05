@@ -16,11 +16,10 @@ Treat the current automation baseline as closed only when:
 - the baseline decision is already `approved baseline`
 - the required artifact set is present and aligned:
   - `automation-smoke-report`
-  - `automation-runtime-inspect-report`
-  - `automation-runtime-http-verify-report`
-  - `automation-runtime-check-report`
-  - `automation-runtime-artifact-manifest`
-  - `automation-readiness-report`
+  - `automation/connection-loop-readiness.json`
+  - lint result
+  - typecheck result
+  - build result
 - the current final-review, baseline-approval, checklist, and change-log docs
   still match repository reality
 

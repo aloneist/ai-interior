@@ -19,14 +19,12 @@ Approve the current automation baseline only when:
 
 - the required artifact set is present and consistent:
   - `automation-smoke-report`
-  - `automation-runtime-inspect-report`
-  - `automation-runtime-http-verify-report`
-  - `automation-runtime-check-report`
-  - `automation-runtime-artifact-manifest`
-  - `automation-readiness-report`
+  - `automation/connection-loop-readiness.json`
+  - lint result
+  - typecheck result
+  - build result
 - smoke still shows read-only auto-run plus blocked approval-required write flow
-- runtime verify still shows no-secret and no-resume safety boundaries
-- runtime inspect, runtime check, runtime artifact manifest, and readiness report stay aligned
+- connection-loop validation still shows the current repo loop and direct-read readiness
 - the deferred areas below remain deferred
 
 ### Hold For Follow-Up
@@ -34,7 +32,7 @@ Approve the current automation baseline only when:
 Hold the baseline for follow-up when:
 
 - any required artifact is missing or contradicts the others
-- smoke, runtime verify, runtime check, or readiness report is not `PASS`
+- smoke, connection-loop validation, lint, typecheck, or build is not green
 - docs no longer match the current artifact set or current safety boundary
 - blocked execution appears to broaden beyond the current contract-only boundary
 
@@ -53,7 +51,7 @@ Check these before recording a decision:
 
 1. [final-review.md](/workspaces/ai-interior/automation/final-review.md)
 2. [operator-runbook.md](/workspaces/ai-interior/automation/operator-runbook.md)
-3. the six required CI or local artifacts listed above
+3. the required CI or local evidence listed above
 4. [baseline-closeout.md](/workspaces/ai-interior/automation/baseline-closeout.md) when recording a handoff or closeout decision
 
 ## Deferred To Next Phase

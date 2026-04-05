@@ -114,11 +114,10 @@ Documentation-only changes:
 
 - Final review still checks the current artifact set in one place:
   - `automation-smoke-report`
-  - `automation-runtime-inspect-report`
-  - `automation-runtime-http-verify-report`
-  - `automation-runtime-check-report`
-  - `automation-runtime-artifact-manifest`
-  - `automation-readiness-report`
+  - `automation/connection-loop-readiness.json`
+  - lint result
+  - typecheck result
+  - build result
 - The final-review bundle still makes the current baseline explicit:
   - what is included now
   - what is intentionally deferred
@@ -132,7 +131,6 @@ Documentation-only changes:
   - what work should stop here
   - what belongs to the next phase
 - Minimum evidence for the baseline decision still stays explicit and artifact-based.
-- The automation readiness report still stays composition-only and does not imply broader runtime behavior.
 
 ## Minimal Review Flow
 
@@ -144,6 +142,6 @@ Documentation-only changes:
 6. Confirm read-only flows still auto-run and approval-required flows still stop.
 7. Confirm delivery remains scoped to approval-required handoff only and never auto-executes risky work.
 8. Confirm accepted approval responses remain blocked and only affect receive-side intake/summary contracts.
-9. Confirm the current smoke/runtime/readiness artifacts still align as one reviewable baseline.
+9. Confirm the current smoke, connection-loop validation, and repo validation results still align as one reviewable baseline.
 10. Record one explicit decision: `approved baseline`, `hold for follow-up`, or `next-phase handoff`.
 11. If the baseline is done, confirm closeout explicitly and stop baseline-only automation expansion here.
