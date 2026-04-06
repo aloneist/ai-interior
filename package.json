@@ -20,6 +20,8 @@
     "qa:recommendation-human-review-run": "node scripts/run-recommendation-human-review.mjs",
     "qa:sofa-style-explanation": "node scripts/sofa-style-explanation-qa.mjs",
     "qa:mvp-explanation-review": "node scripts/run-mvp-explanation-review.mjs",
+    "qa:controlled-mvp": "node scripts/run-controlled-mvp-qa.mjs",
+    "qa:catalog-metadata-audit": "node scripts/catalog-metadata-enrichment-audit.mjs",
     "automation:smoke": "node automation/demo/run-smoke-test.cjs",
     "automation:smoke:report": "node automation/demo/run-smoke-report.mjs",
     "automation:connection:validate": "node automation/demo/run-connection-loop-validation.mjs",

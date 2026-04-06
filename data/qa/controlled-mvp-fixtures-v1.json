@@ -1,0 +1,113 @@
+{
+  "version": "v1",
+  "title": "Controlled MVP End-To-End QA Fixtures",
+  "purpose": "Stable QA fixtures for /api/mvp controlled_fixture mode. Image analysis is bypassed with fixed room scores; ranking, product hydration, explanation generation, validation/fallback, grouping, and response shaping still run through the route.",
+  "sideEffectPolicy": {
+    "qaMode": "controlled_fixture",
+    "defaultPersistence": "skipped",
+    "authorization": "x-admin-token must match ADMIN_TOKEN",
+    "imageUrl": "qa:// URLs are fixture identifiers, not fetched in controlled_fixture mode"
+  },
+  "cases": [
+    {
+      "caseId": "controlled-mvp-normal-living-table",
+      "dimension": "normal-pass",
+      "scenario": "Normal living-room table request with warm/calm style and low budget.",
+      "body": {
+        "imageUrl": "qa://mvp/normal-living-table",
+        "qaMode": "controlled_fixture",
+        "qaSkipPersistence": true,
+        "qaRoomAnalysis": {
+          "brightness_score": 54,
+          "color_temperature_score": 70,
+          "spatial_density_score": 44,
+          "minimalism_score": 58,
+          "contrast_score": 36,
+          "colorfulness_score": 32,
+          "dominant_color_hex": "#BFA782"
+        },
+        "roomType": "living",
+        "styles": ["warm-wood", "calm"],
+        "budget": "low",
+        "furniture": ["table"],
+        "requestText": "따뜻한 우드톤과 차분한 느낌으로 작은 테이블을 맞추고 싶어요"
+      },
+      "expectations": {
+        "minRecommendations": 3,
+        "minGroups": 1,
+        "top3PreferredCategoryMin": 1,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 1,
+        "top3RoomFitMin": 1,
+        "weakResultAllowed": false
+      }
+    },
+    {
+      "caseId": "controlled-mvp-constrained-workspace-chair",
+      "dimension": "constrained",
+      "scenario": "Constrained workspace chair request with category, style, budget, and room intent.",
+      "body": {
+        "imageUrl": "qa://mvp/constrained-workspace-chair",
+        "qaMode": "controlled_fixture",
+        "qaSkipPersistence": true,
+        "qaRoomAnalysis": {
+          "brightness_score": 62,
+          "color_temperature_score": 58,
+          "spatial_density_score": 48,
+          "minimalism_score": 72,
+          "contrast_score": 42,
+          "colorfulness_score": 36,
+          "dominant_color_hex": "#D8D2C8"
+        },
+        "roomType": "workspace",
+        "styles": ["minimal", "bright"],
+        "budget": "low",
+        "furniture": ["chair"],
+        "requestText": "밝고 미니멀한 작업 공간으로 가볍게 꾸미고 싶어요"
+      },
+      "expectations": {
+        "minRecommendations": 3,
+        "minGroups": 1,
+        "top3PreferredCategoryMin": 1,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 1,
+        "top3RoomFitMin": 1,
+        "weakResultAllowed": false
+      }
+    },
+    {
+      "caseId": "controlled-mvp-weak-workspace-sofa",
+      "dimension": "weak-result",
+      "scenario": "Intentionally awkward low-budget sofa request for a small workspace.",
+      "body": {
+        "imageUrl": "qa://mvp/weak-workspace-sofa",
+        "qaMode": "controlled_fixture",
+        "qaSkipPersistence": true,
+        "qaRoomAnalysis": {
+          "brightness_score": 50,
+          "color_temperature_score": 56,
+          "spatial_density_score": 34,
+          "minimalism_score": 76,
+          "contrast_score": 30,
+          "colorfulness_score": 26,
+          "dominant_color_hex": "#B8B3AA"
+        },
+        "roomType": "workspace",
+        "styles": ["minimal"],
+        "budget": "low",
+        "furniture": ["sofa"],
+        "requestText": "작은 작업 공간인데 저예산으로 소파를 꼭 넣고 싶어요"
+      },
+      "expectations": {
+        "minRecommendations": 3,
+        "minGroups": 1,
+        "top3PreferredCategoryMin": 0,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 0,
+        "top3RoomFitMin": 1,
+        "weakResultAllowed": true,
+        "expectedWeakReasons": ["weak_category_match"]
+      }
+    }
+  ]
+}

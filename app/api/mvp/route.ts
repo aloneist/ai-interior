@@ -43,6 +43,26 @@ type FurnitureVectorRow = {
   colorfulness_score: number | null
 }
 
+type MvpRequestBody = {
+  imageUrl?: string
+  roomType?: string | null
+  styles?: string[]
+  budget?: string | null
+  furniture?: string[]
+  requestText?: string
+  qaMode?: string
+  qaSkipPersistence?: boolean
+  qaRoomAnalysis?: {
+    brightness_score?: number
+    color_temperature_score?: number
+    spatial_density_score?: number
+    minimalism_score?: number
+    contrast_score?: number
+    colorfulness_score?: number
+    dominant_color_hex?: string
+  }
+}
+
 function formatPriceText(price: number | null) {
   if (!price || !Number.isFinite(price)) return "-"
   return `${price.toLocaleString()}원`
@@ -73,8 +93,18 @@ function getErrorMessage(error: unknown) {
   return "Unknown error"
 }
 
+function isControlledQaMode(body: MvpRequestBody) {
+  return body.qaMode === "controlled_fixture"
+}
+
+function isAuthorizedQaRequest(req: Request) {
+  const token = req.headers.get("x-admin-token")
+  return Boolean(process.env.ADMIN_TOKEN && token === process.env.ADMIN_TOKEN)
+}
+
 export async function POST(req: Request) {
   try {
+    const body = (await req.json()) as MvpRequestBody
     const {
       imageUrl,
       roomType,
@@ -82,35 +112,45 @@ export async function POST(req: Request) {
       budget,
       furniture = [],
       requestText = "",
-    } = await req.json()
+    } = body
+    const qaMode = isControlledQaMode(body)
+    const skipPersistence = qaMode && body.qaSkipPersistence !== false
 
     const openai = getOpenAIClient()
     const supabase = getSupabaseAdminClient()
     const request_id = crypto.randomUUID()
 
+    if (qaMode && !isAuthorizedQaRequest(req)) {
+      return NextResponse.json({ error: "Unauthorized QA mode" }, { status: 403 })
+    }
+
     if (!imageUrl) {
       return NextResponse.json({ error: "imageUrl is required" }, { status: 400 })
     }
 
-    const analyzeRes = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: ROOM_ANALYSIS_SYSTEM_PROMPT,
-        },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Analyze this room photo." },
-            { type: "image_url", image_url: { url: imageUrl } },
-          ],
-        },
-      ],
-    })
-
-    const analysis = JSON.parse(analyzeRes.choices[0].message.content!)
+    const analysis = qaMode
+      ? body.qaRoomAnalysis ?? {}
+      : JSON.parse(
+          (
+            await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              response_format: { type: "json_object" },
+              messages: [
+                {
+                  role: "system",
+                  content: ROOM_ANALYSIS_SYSTEM_PROMPT,
+                },
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: "Analyze this room photo." },
+                    { type: "image_url", image_url: { url: imageUrl } },
+                  ],
+                },
+              ],
+            })
+          ).choices[0].message.content ?? "{}"
+        )
     const normalized = normalizeRoomAnalysis(analysis)
 
     const spaceNormalized = {
@@ -124,13 +164,23 @@ export async function POST(req: Request) {
       dominant_color_hex: normalized.dominant_color_hex,
     }
 
-    const { data: spaceRow, error: spaceErr } = await supabase
-      .from("spaces")
-      .insert(spaceNormalized)
-      .select()
-      .single()
+    const spaceRow = skipPersistence
+      ? {
+          id: request_id,
+          ...spaceNormalized,
+          qa_mode: "controlled_fixture",
+        }
+      : await (async () => {
+          const { data, error } = await supabase
+            .from("spaces")
+            .insert(spaceNormalized)
+            .select()
+            .single()
 
-    if (spaceErr) throw spaceErr
+          if (error) throw error
+
+          return data
+        })()
 
     const brightness = spaceNormalized.brightness_score
     const temperature = spaceNormalized.color_temperature_score
@@ -217,21 +267,23 @@ export async function POST(req: Request) {
       },
     })
 
-    const { error: recommendationsInsertError } = await supabase
-      .from("recommendations")
-      .insert(
-        top3.map((item) => ({
-          request_id,
-          event_source: "web",
-          space_id: spaceRow.id,
-          furniture_id: item.id,
-          compatibility_score: item.recommendation_score,
-          clicked: false,
-          saved: false,
-        }))
-      )
+    if (!skipPersistence) {
+      const { error: recommendationsInsertError } = await supabase
+        .from("recommendations")
+        .insert(
+          top3.map((item) => ({
+            request_id,
+            event_source: qaMode ? "qa_controlled_fixture" : "web",
+            space_id: spaceRow.id,
+            furniture_id: item.id,
+            compatibility_score: item.recommendation_score,
+            clicked: false,
+            saved: false,
+          }))
+        )
 
-    if (recommendationsInsertError) throw recommendationsInsertError
+      if (recommendationsInsertError) throw recommendationsInsertError
+    }
 
     const explainRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -336,6 +388,17 @@ export async function POST(req: Request) {
       recommendations: top3WithReasons,
       grouped_recommendations: groupedRecommendations,
       quality_summary: ranked.qualitySummary,
+      qa: qaMode
+        ? {
+            mode: "controlled_fixture",
+            persistence: skipPersistence ? "skipped" : "enabled",
+            explanation_sources: validatedExplanations.map((reason) => ({
+              product_key: reason.product_key,
+              source: reason.source,
+              validation_reasons: reason.validation_reasons,
+            })),
+          }
+        : undefined,
     })
   } catch (err: unknown) {
     console.error("MVP API ERROR:", err)
