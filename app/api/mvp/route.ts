@@ -6,7 +6,10 @@ import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 import {
   loadRuntimeFurnitureRecordsByIds,
 } from "@/lib/server/furniture-catalog"
-import { rankFurnitureForRecommendations } from "@/lib/server/recommendation-ranking"
+import {
+  rankFurnitureForRecommendations,
+  type RankedFurniture,
+} from "@/lib/server/recommendation-ranking"
 import {
   buildRecommendationGroups,
   type GroupableFurniture,
@@ -16,6 +19,7 @@ import {
   RECOMMENDATION_EXPLAIN_SYSTEM_PROMPT,
 } from "@/lib/mvp/prompts"
 import { buildRecommendationExplainPayload } from "@/lib/mvp/payloads"
+import { validateExplanationSet } from "@/lib/mvp/explanation-validation"
 import {
   calcTrustScore,
   labelRoom,
@@ -23,10 +27,11 @@ import {
   trustNote,
 } from "@/lib/mvp/room-analysis"
 
-type ScoredFurniture = GroupableFurniture & {
-  product_key?: string | null
-  created_at?: string | null
-}
+type ScoredFurniture = GroupableFurniture &
+  Pick<RankedFurniture, "ranking_context"> & {
+    product_key?: string | null
+    created_at?: string | null
+  }
 
 type FurnitureVectorRow = {
   furniture_id: string
@@ -36,15 +41,6 @@ type FurnitureVectorRow = {
   minimalism_score: number | null
   contrast_score: number | null
   colorfulness_score: number | null
-}
-
-type ExplainReason = {
-  product_key: string
-  reason_short: string
-}
-
-type ExplainResponse = {
-  reasons?: ExplainReason[]
 }
 
 function formatPriceText(price: number | null) {
@@ -272,6 +268,7 @@ export async function POST(req: Request) {
                 category: item.category,
                 price: item.price,
                 score: item.recommendation_score,
+                ranking_context: item.ranking_context,
               })),
             })
           ),
@@ -279,12 +276,23 @@ export async function POST(req: Request) {
       ],
     })
 
-    const explainJson = JSON.parse(
-      explainRes.choices[0].message.content!
-    ) as ExplainResponse
-
-    const reasonMap = new Map<string, string>(
-      (explainJson.reasons ?? []).map((reason) => [
+    const explainJson = JSON.parse(explainRes.choices[0].message.content ?? "{}")
+    const validatedExplanations = validateExplanationSet({
+      generated: explainJson,
+      items: top3.map((item) => ({
+        product_key: item.product_key,
+        name: item.name,
+        category: item.category,
+        ranking_context: item.ranking_context,
+      })),
+      userInput: {
+        roomType,
+        styles,
+        budget,
+      },
+    })
+    const reasonMap = new Map(
+      validatedExplanations.map((reason) => [
         reason.product_key,
         reason.reason_short,
       ])

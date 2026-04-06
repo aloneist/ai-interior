@@ -6,6 +6,13 @@ type ExplainItem = {
   category: string | null
   price: number | null
   score: number
+  ranking_context?: {
+    category_fit?: string | null
+    room_fit?: string | null
+    style_fit?: string | null
+    budget_fit?: string | null
+    weak_match_reasons?: string[]
+  }
 }
 
 type ExplainPayloadParams = {
@@ -52,6 +59,7 @@ export function buildRecommendationExplainPayload(params: ExplainPayloadParams) 
       category: x.category,
       price: x.price,
       score: x.score,
+      ranking_context: x.ranking_context,
     })),
   }
 }

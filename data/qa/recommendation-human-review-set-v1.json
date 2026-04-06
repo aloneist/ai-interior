@@ -1,0 +1,212 @@
+{
+  "version": "v1",
+  "title": "Recommendation Human Review Set",
+  "reviewType": "operator-human-review",
+  "purpose": "Small repeatable MVP review set for recommendation quality changes. These cases are review fixtures, not product behavior.",
+  "metadataContract": {
+    "styleLabels": ["minimal", "bright", "warm-wood", "calm", "modern", "hotel"],
+    "roomTypes": ["living", "bedroom", "workspace", "dining"],
+    "furnitureTypes": ["sofa", "chair", "table"],
+    "budgetLevels": ["low", "medium", "high"]
+  },
+  "reviewScale": {
+    "pass": "Top results satisfy the explicit primary intent and no severe mismatch is hidden.",
+    "mixed": "At least one important constraint is met, but a follow-up fix is worth tracking.",
+    "fail": "Top results violate the primary intent or weak-result visibility is missing."
+  },
+  "cases": [
+    {
+      "caseId": "hqa-category-chair-workspace-low",
+      "dimension": "category",
+      "scenario": "Workspace request where the user explicitly asks for a chair under a low budget.",
+      "input": {
+        "roomType": "workspace",
+        "styles": ["minimal", "bright"],
+        "budget": "low",
+        "furniture": ["chair"],
+        "requestText": "밝고 미니멀한 작업 공간에 저렴한 의자를 두고 싶어요"
+      },
+      "roomTargets": {
+        "brightness": 68,
+        "temperature": 56,
+        "footprint": 42,
+        "minimalism": 72,
+        "contrast": 40,
+        "colorfulness": 34
+      },
+      "expectations": {
+        "top3PreferredCategoryMin": 1,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 1,
+        "top3RoomFitMin": 1,
+        "weakResultAllowed": false
+      },
+      "humanReviewFocus": [
+        "Top 3 should include at least one clear chair or chair-like product.",
+        "A non-chair can be acceptable only if it is a plausible workspace support item.",
+        "If chair coverage is weak, the response should expose weak-category signals."
+      ]
+    },
+    {
+      "caseId": "hqa-budget-living-sofa-low",
+      "dimension": "budget",
+      "scenario": "Low-budget living-room request with a sofa preference.",
+      "input": {
+        "roomType": "living",
+        "styles": ["minimal"],
+        "budget": "low",
+        "furniture": ["sofa"],
+        "requestText": "예산이 낮아서 가성비 위주로 소파 중심 거실을 맞추고 싶어요"
+      },
+      "roomTargets": {
+        "brightness": 56,
+        "temperature": 54,
+        "footprint": 72,
+        "minimalism": 56,
+        "contrast": 44,
+        "colorfulness": 40
+      },
+      "expectations": {
+        "top3PreferredCategoryMin": 1,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 0,
+        "top3RoomFitMin": 1,
+        "weakResultAllowed": false
+      },
+      "humanReviewFocus": [
+        "Budget fit should not be sacrificed to force a sofa when catalog coverage is weak.",
+        "If no sofa is available in the top results, weak-category surfacing is acceptable and expected.",
+        "Avoid premium-looking top results unless explicitly marked as weak budget fit."
+      ]
+    },
+    {
+      "caseId": "hqa-style-warm-calm-table",
+      "dimension": "style",
+      "scenario": "Warm wood and calm style request with a table preference.",
+      "input": {
+        "roomType": "living",
+        "styles": ["warm-wood", "calm"],
+        "budget": "low",
+        "furniture": ["table"],
+        "requestText": "따뜻한 우드톤과 차분한 느낌으로 작은 테이블을 맞추고 싶어요"
+      },
+      "roomTargets": {
+        "brightness": 54,
+        "temperature": 70,
+        "footprint": 44,
+        "minimalism": 58,
+        "contrast": 36,
+        "colorfulness": 32
+      },
+      "expectations": {
+        "top3PreferredCategoryMin": 1,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 1,
+        "top3RoomFitMin": 1,
+        "weakResultAllowed": false
+      },
+      "humanReviewFocus": [
+        "At least one top result should have explicit or proxy warm/calm style fit.",
+        "Wood, brown, natural, grey, beige, or similarly calm signals should be treated as positive.",
+        "A visually harsh modern item should not dominate unless other constraints clearly justify it."
+      ]
+    },
+    {
+      "caseId": "hqa-room-dining-modern-table",
+      "dimension": "room-type",
+      "scenario": "Dining room request where table fit matters more than generic visual similarity.",
+      "input": {
+        "roomType": "dining",
+        "styles": ["modern"],
+        "budget": "low",
+        "furniture": ["table"],
+        "requestText": "모던한 다이닝 공간에 작은 테이블을 두고 싶어요"
+      },
+      "roomTargets": {
+        "brightness": 55,
+        "temperature": 52,
+        "footprint": 50,
+        "minimalism": 54,
+        "contrast": 50,
+        "colorfulness": 45
+      },
+      "expectations": {
+        "top3PreferredCategoryMin": 1,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 1,
+        "top3RoomFitMin": 1,
+        "weakResultAllowed": false
+      },
+      "humanReviewFocus": [
+        "Top results should include dining-appropriate table or chair support.",
+        "A sofa-led result is a failure for this case.",
+        "Modern style can be explicit text fit or proxy fit, but room fit must remain visible."
+      ]
+    },
+    {
+      "caseId": "hqa-mixed-workspace-chair-style-budget",
+      "dimension": "mixed",
+      "scenario": "Mixed category, style, budget, and room-type request for a workspace chair.",
+      "input": {
+        "roomType": "workspace",
+        "styles": ["minimal", "bright"],
+        "budget": "low",
+        "furniture": ["chair"],
+        "requestText": "밝고 미니멀한 작업 공간으로 가볍게 꾸미고 싶어요"
+      },
+      "roomTargets": {
+        "brightness": 62,
+        "temperature": 58,
+        "footprint": 48,
+        "minimalism": 72,
+        "contrast": 42,
+        "colorfulness": 36
+      },
+      "expectations": {
+        "top3PreferredCategoryMin": 1,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 1,
+        "top3RoomFitMin": 1,
+        "weakResultAllowed": false
+      },
+      "humanReviewFocus": [
+        "This is the core regression case for the current MVP ranking baseline.",
+        "A top result can miss one secondary signal only if the rest of the top 3 still satisfies the intent.",
+        "The result should remain deduped and purchasable-looking."
+      ]
+    },
+    {
+      "caseId": "hqa-weak-workspace-sofa-low",
+      "dimension": "weak-result",
+      "scenario": "Intentionally awkward request for a low-budget sofa in a small workspace.",
+      "input": {
+        "roomType": "workspace",
+        "styles": ["minimal"],
+        "budget": "low",
+        "furniture": ["sofa"],
+        "requestText": "작은 작업 공간인데 저예산으로 소파를 꼭 넣고 싶어요"
+      },
+      "roomTargets": {
+        "brightness": 50,
+        "temperature": 56,
+        "footprint": 34,
+        "minimalism": 76,
+        "contrast": 30,
+        "colorfulness": 26
+      },
+      "expectations": {
+        "top3PreferredCategoryMin": 0,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 0,
+        "top3RoomFitMin": 1,
+        "weakResultAllowed": true,
+        "expectedWeakReasons": ["weak_category_match"]
+      },
+      "humanReviewFocus": [
+        "This case is allowed to be weak because the catalog may not satisfy sofa + workspace + low budget.",
+        "The important pass condition is honest weak-result surfacing, not forcing a bad sofa.",
+        "If the API returns confident-looking non-sofa results without weak-category visibility, mark fail."
+      ]
+    }
+  ]
+}

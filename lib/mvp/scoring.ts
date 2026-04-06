@@ -58,7 +58,9 @@ const REQUEST_SIGNAL_BONUSES = {
   minimalStyleBonus: 6,
   brightBonus: 4,
   calmBonus: 3,
+  hotelBonus: 3,
   warmBonus: 4,
+  modernBonus: 3,
 } as const
 
 const STYLE_SELECTION_BONUSES = {
@@ -291,6 +293,20 @@ export function scoreFurnitureByUserInput(
 
     if (requestSignals.wantsCalm && item.recommendation_score >= 72) {
       bonus += REQUEST_SIGNAL_BONUSES.calmBonus
+    }
+
+    if (
+      requestSignals.wantsHotel &&
+      includesAnyKeyword(selectedStyles.join(" "), ["hotel"])
+    ) {
+      bonus += REQUEST_SIGNAL_BONUSES.hotelBonus
+    }
+
+    if (
+      requestSignals.wantsModern &&
+      includesAnyKeyword(selectedStyles.join(" "), ["modern"])
+    ) {
+      bonus += REQUEST_SIGNAL_BONUSES.modernBonus
     }
 
     if (

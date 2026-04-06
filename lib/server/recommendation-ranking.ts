@@ -4,7 +4,11 @@ import {
   scoreFurnitureByUserInput,
   type UserPreferenceInput,
 } from "@/lib/mvp/scoring"
-import { normalizeText } from "@/lib/mvp/request-signals"
+import {
+  includesAnyKeyword,
+  normalizeText,
+  parseRequestSignals,
+} from "@/lib/mvp/request-signals"
 import type { RuntimeFurnitureRecord } from "@/lib/server/furniture-catalog"
 
 export type FurnitureVectorLike = {
@@ -32,6 +36,8 @@ export type RankedFurniture = RuntimeFurnitureRecord & {
     base_score: number
     final_score: number
     category_fit: "preferred" | "room_match" | "mismatch" | "neutral"
+    room_fit: "good" | "mismatch" | "neutral"
+    style_fit: "explicit" | "proxy" | "mismatch" | "neutral"
     budget_fit: "within" | "over" | "under" | "unknown" | "neutral"
     metadata_quality: "complete" | "partial" | "weak"
     weak_match_reasons: string[]
@@ -46,6 +52,8 @@ export type RankingQualitySummary = {
   weak_reasons: string[]
   preferred_category_in_top3: number | null
   within_budget_in_top3: number | null
+  style_fit_in_top3: number | null
+  room_fit_in_top3: number | null
 }
 
 const DEFAULT_WEIGHTS = {
@@ -56,6 +64,87 @@ const DEFAULT_WEIGHTS = {
   contrast: 0.1,
   colorfulness: 0.1,
 } as const
+
+const STYLE_KEYWORDS = {
+  minimal: ["minimal", "미니멀", "simple", "심플", "sleek", "깔끔"],
+  bright: [
+    "white",
+    "화이트",
+    "light",
+    "라이트",
+    "beige",
+    "베이지",
+    "cream",
+    "크림",
+    "natural",
+    "내추럴",
+  ],
+  "warm-wood": [
+    "wood",
+    "우드",
+    "나무",
+    "oak",
+    "오크",
+    "walnut",
+    "월넛",
+    "acacia",
+    "아카시아",
+    "brown",
+    "브라운",
+  ],
+  calm: [
+    "grey",
+    "gray",
+    "그레이",
+    "beige",
+    "베이지",
+    "natural",
+    "내추럴",
+    "blue",
+    "블루",
+  ],
+  modern: [
+    "black",
+    "블랙",
+    "steel",
+    "스틸",
+    "metal",
+    "메탈",
+    "chrome",
+    "크롬",
+    "glass",
+    "유리",
+  ],
+  hotel: [
+    "velvet",
+    "벨벳",
+    "dark",
+    "다크",
+    "black",
+    "블랙",
+    "gold",
+    "골드",
+    "lounge",
+    "라운지",
+  ],
+} as const
+
+type StyleToken = keyof typeof STYLE_KEYWORDS
+
+const MINIMAL_STYLE_CONTRADICTION_KEYWORDS = [
+  "red",
+  "레드",
+  "yellow",
+  "옐로",
+  "blue",
+  "블루",
+  "gold",
+  "골드",
+  "velvet",
+  "벨벳",
+  "pattern",
+  "패턴",
+]
 
 function normalizeKeyPart(value: string | null | undefined) {
   return normalizeText(value).replace(/\s+/g, " ")
@@ -70,6 +159,21 @@ function buildDeduplicationKey(item: RuntimeFurnitureRecord) {
     normalizeKeyPart(item.name),
     normalizeKeyPart(item.category),
   ].join("|")
+}
+
+function getFurnitureSearchText(item: RuntimeFurnitureRecord) {
+  return normalizeText([item.brand, item.name, item.category].filter(Boolean).join(" "))
+}
+
+function isSofaLike(item: RuntimeFurnitureRecord) {
+  return includesAnyKeyword(getFurnitureSearchText(item), [
+    "sofa",
+    "소파",
+    "settee",
+    "loveseat",
+    "chaise",
+    "긴의자",
+  ])
 }
 
 function clampScore(value: number) {
@@ -90,41 +194,161 @@ function getMetadataPenalty(
   return penalty
 }
 
-function scoreStyleSignals(
-  vector: FurnitureVectorLike,
-  userInput?: UserPreferenceInput
+function getRequestedStyleTokens(userInput?: UserPreferenceInput) {
+  const tokens = new Set<StyleToken>()
+  const selectedStyles = (userInput?.styles ?? []).map((style) =>
+    normalizeText(style)
+  )
+  const requestSignals = parseRequestSignals(userInput?.requestText)
+
+  for (const style of selectedStyles) {
+    if (style in STYLE_KEYWORDS) tokens.add(style as StyleToken)
+  }
+
+  if (requestSignals.wantsMinimal) tokens.add("minimal")
+  if (requestSignals.wantsBright) tokens.add("bright")
+  if (requestSignals.wantsCalm) tokens.add("calm")
+  if (requestSignals.wantsWarm) tokens.add("warm-wood")
+  if (requestSignals.wantsModern) tokens.add("modern")
+  if (requestSignals.wantsHotel) tokens.add("hotel")
+
+  return [...tokens]
+}
+
+function vectorMatchesStyle(vector: FurnitureVectorLike, style: StyleToken) {
+  if (style === "minimal") return (vector.minimalism_score ?? 50) >= 68
+  if (style === "bright") return (vector.brightness_compatibility ?? 50) >= 65
+  if (style === "warm-wood") return (vector.color_temperature_score ?? 50) >= 60
+
+  if (style === "calm") {
+    return (
+      (vector.contrast_score ?? 50) <= 55 &&
+      (vector.colorfulness_score ?? 50) <= 60
+    )
+  }
+
+  if (style === "modern") {
+    return (
+      (vector.minimalism_score ?? 50) >= 60 &&
+      (vector.contrast_score ?? 50) >= 50
+    )
+  }
+
+  return (
+    (vector.minimalism_score ?? 50) >= 58 &&
+    (vector.color_temperature_score ?? 50) >= 52
+  )
+}
+
+function sofaMatchesMinimalProxy(
+  item: RuntimeFurnitureRecord,
+  vector: FurnitureVectorLike
 ) {
-  const styles = (userInput?.styles ?? []).map((style) => normalizeText(style))
-  let bonus = 0
+  if (!isSofaLike(item)) return false
 
-  if (styles.includes("minimal") && (vector.minimalism_score ?? 50) >= 68) {
-    bonus += 6
+  const itemText = getFurnitureSearchText(item)
+
+  if (includesAnyKeyword(itemText, MINIMAL_STYLE_CONTRADICTION_KEYWORDS)) {
+    return false
   }
 
-  if (styles.includes("bright") && (vector.brightness_compatibility ?? 50) >= 65) {
-    bonus += 4
+  return (
+    (vector.minimalism_score ?? 50) >= 50 &&
+    (vector.contrast_score ?? 50) <= 55 &&
+    (vector.colorfulness_score ?? 50) <= 50 &&
+    (vector.spatial_footprint_score ?? 50) <= 80
+  )
+}
+
+function sofaHasMinimalNeutralEvidence(
+  item: RuntimeFurnitureRecord,
+  requestedStyles: StyleToken[]
+) {
+  if (!requestedStyles.includes("minimal")) return false
+  if (!isSofaLike(item)) return false
+
+  return !includesAnyKeyword(
+    getFurnitureSearchText(item),
+    MINIMAL_STYLE_CONTRADICTION_KEYWORDS
+  )
+}
+
+function getStyleFit(params: {
+  item: RuntimeFurnitureRecord
+  vector: FurnitureVectorLike
+  userInput?: UserPreferenceInput
+}): RankedFurniture["ranking_context"]["style_fit"] {
+  const requestedStyles = getRequestedStyleTokens(params.userInput)
+
+  if (requestedStyles.length === 0) return "neutral"
+
+  const itemText = getFurnitureSearchText(params.item)
+  const hasExplicitMatch = requestedStyles.some((style) =>
+    includesAnyKeyword(itemText, STYLE_KEYWORDS[style])
+  )
+
+  if (hasExplicitMatch) return "explicit"
+
+  const hasProxyMatch = requestedStyles.some((style) =>
+    vectorMatchesStyle(params.vector, style)
+  )
+
+  if (hasProxyMatch) return "proxy"
+
+  if (
+    requestedStyles.includes("minimal") &&
+    sofaMatchesMinimalProxy(params.item, params.vector)
+  ) {
+    return "proxy"
   }
 
-  if (styles.includes("warm-wood") && (vector.color_temperature_score ?? 50) >= 60) {
-    bonus += 4
+  if (sofaHasMinimalNeutralEvidence(params.item, requestedStyles)) {
+    return "neutral"
   }
 
-  if (styles.includes("calm")) {
-    if ((vector.contrast_score ?? 50) <= 55) bonus += 3
-    if ((vector.colorfulness_score ?? 50) <= 55) bonus += 2
-  }
+  return "mismatch"
+}
 
-  if (styles.includes("modern")) {
-    if ((vector.minimalism_score ?? 50) >= 60) bonus += 3
-    if ((vector.contrast_score ?? 50) >= 50) bonus += 2
-  }
+function getStyleAdjustment(
+  styleFit: RankedFurniture["ranking_context"]["style_fit"]
+) {
+  if (styleFit === "explicit") return 10
+  if (styleFit === "proxy") return 5
+  if (styleFit === "mismatch") return -8
 
-  if (styles.includes("hotel")) {
-    if ((vector.minimalism_score ?? 50) >= 58) bonus += 3
-    if ((vector.color_temperature_score ?? 50) >= 52) bonus += 2
-  }
+  return 0
+}
 
-  return bonus
+function getRoomFit(
+  item: RuntimeFurnitureRecord,
+  userInput?: UserPreferenceInput
+): RankedFurniture["ranking_context"]["room_fit"] {
+  if (!normalizeText(userInput?.roomType)) return "neutral"
+
+  const roomTypeScore = scoreFurnitureByRoomType(
+    {
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      price: item.price,
+      recommendation_score: 0,
+    },
+    userInput?.roomType
+  )
+
+  if (roomTypeScore > 0) return "good"
+  if (roomTypeScore < 0) return "mismatch"
+
+  return "neutral"
+}
+
+function getRoomFitAdjustment(
+  roomFit: RankedFurniture["ranking_context"]["room_fit"]
+) {
+  if (roomFit === "good") return 5
+  if (roomFit === "mismatch") return -10
+
+  return 0
 }
 
 function getBudgetFit(
@@ -214,6 +438,8 @@ function getMetadataQuality(item: RuntimeFurnitureRecord) {
 
 function buildWeakMatchReasons(params: {
   categoryFit: RankedFurniture["ranking_context"]["category_fit"]
+  roomFit: RankedFurniture["ranking_context"]["room_fit"]
+  styleFit: RankedFurniture["ranking_context"]["style_fit"]
   budgetFit: RankedFurniture["ranking_context"]["budget_fit"]
   metadataQuality: RankedFurniture["ranking_context"]["metadata_quality"]
   finalScore: number
@@ -222,6 +448,14 @@ function buildWeakMatchReasons(params: {
 
   if (params.categoryFit === "mismatch") {
     reasons.push("category_mismatch")
+  }
+
+  if (params.roomFit === "mismatch") {
+    reasons.push("room_type_mismatch")
+  }
+
+  if (params.styleFit === "mismatch") {
+    reasons.push("style_mismatch")
   }
 
   if (params.budgetFit === "over" || params.budgetFit === "unknown") {
@@ -243,6 +477,41 @@ function sortRankedFurniture(a: RankedFurniture, b: RankedFurniture) {
   if (b.recommendation_score !== a.recommendation_score) {
     return b.recommendation_score - a.recommendation_score
   }
+
+  const categoryFitOrder = {
+    preferred: 3,
+    room_match: 2,
+    neutral: 1,
+    mismatch: 0,
+  } as const
+  const categoryFitGap =
+    categoryFitOrder[b.ranking_context.category_fit] -
+    categoryFitOrder[a.ranking_context.category_fit]
+
+  if (categoryFitGap !== 0) return categoryFitGap
+
+  const roomFitOrder = {
+    good: 2,
+    neutral: 1,
+    mismatch: 0,
+  } as const
+  const roomFitGap =
+    roomFitOrder[b.ranking_context.room_fit] -
+    roomFitOrder[a.ranking_context.room_fit]
+
+  if (roomFitGap !== 0) return roomFitGap
+
+  const styleFitOrder = {
+    explicit: 3,
+    proxy: 2,
+    neutral: 1,
+    mismatch: 0,
+  } as const
+  const styleFitGap =
+    styleFitOrder[b.ranking_context.style_fit] -
+    styleFitOrder[a.ranking_context.style_fit]
+
+  if (styleFitGap !== 0) return styleFitGap
 
   const metadataOrder = {
     complete: 2,
@@ -303,11 +572,23 @@ export function rankFurnitureForRecommendations(params: {
         },
         userInput
       )
-      const styleBonus = scoreStyleSignals(vector, userInput)
+      const styleFit = getStyleFit({
+        item: furniture,
+        vector,
+        userInput,
+      })
+      const styleAdjustment = getStyleAdjustment(styleFit)
+      const roomFit = getRoomFit(furniture, userInput)
+      const roomAdjustment = getRoomFitAdjustment(roomFit)
       const budgetPenalty = getBudgetPenalty(furniture.price, userInput?.budget)
       const metadataPenalty = getMetadataPenalty(furniture, userInput)
       const finalScore = clampScore(
-        baseScore + preferenceScore + styleBonus + budgetPenalty + metadataPenalty
+        baseScore +
+          preferenceScore +
+          styleAdjustment +
+          roomAdjustment +
+          budgetPenalty +
+          metadataPenalty
       )
       const categoryFit = getCategoryFit(furniture, userInput)
       const budgetFit = getBudgetFit(furniture.price, userInput?.budget)
@@ -320,10 +601,14 @@ export function rankFurnitureForRecommendations(params: {
           base_score: baseScore,
           final_score: finalScore,
           category_fit: categoryFit,
+          room_fit: roomFit,
+          style_fit: styleFit,
           budget_fit: budgetFit,
           metadata_quality: metadataQuality,
           weak_match_reasons: buildWeakMatchReasons({
             categoryFit,
+            roomFit,
+            styleFit,
             budgetFit,
             metadataQuality,
             finalScore,
@@ -353,6 +638,14 @@ export function rankFurnitureForRecommendations(params: {
   const withinBudgetInTop3 = normalizeText(userInput?.budget)
     ? top3.filter((item) => item.ranking_context.budget_fit === "within").length
     : null
+  const styleFitInTop3 = getRequestedStyleTokens(userInput).length
+    ? top3.filter((item) =>
+        ["explicit", "proxy"].includes(item.ranking_context.style_fit)
+      ).length
+    : null
+  const roomFitInTop3 = normalizeText(userInput?.roomType)
+    ? top3.filter((item) => item.ranking_context.room_fit === "good").length
+    : null
   const weakReasons: string[] = []
 
   if (top3.length < Math.min(3, limit)) {
@@ -368,6 +661,14 @@ export function rankFurnitureForRecommendations(params: {
 
   if (withinBudgetInTop3 !== null && withinBudgetInTop3 === 0) {
     weakReasons.push("weak_budget_match")
+  }
+
+  if (styleFitInTop3 !== null && styleFitInTop3 === 0) {
+    weakReasons.push("weak_style_match")
+  }
+
+  if (roomFitInTop3 !== null && roomFitInTop3 < Math.min(2, top3.length)) {
+    weakReasons.push("weak_room_match")
   }
 
   if (top3.some((item) => item.ranking_context.final_score < 60)) {
@@ -388,6 +689,8 @@ export function rankFurnitureForRecommendations(params: {
       weak_reasons: weakReasons,
       preferred_category_in_top3: preferredCategoryInTop3,
       within_budget_in_top3: withinBudgetInTop3,
+      style_fit_in_top3: styleFitInTop3,
+      room_fit_in_top3: roomFitInTop3,
     } satisfies RankingQualitySummary,
   }
 }

@@ -1,0 +1,263 @@
+{
+  "version": "v1",
+  "title": "MVP Explanation Alignment Fixtures",
+  "purpose": "Stable review fixtures for checking generated recommendation explanations against frozen ranking_context without rerunning image analysis.",
+  "model": "gpt-4o-mini",
+  "cases": [
+    {
+      "caseId": "mvp-exp-living-sofa-aligned",
+      "scenario": "Low-budget living-room sofa case after sofa anchor and style proxy fixes.",
+      "requestSummary": "Living room, minimal style, low budget, sofa preference.",
+      "payload": {
+        "room": {
+          "scores": {
+            "brightness": 56,
+            "temperature": 54,
+            "density": 72,
+            "minimalism": 56,
+            "contrast": 44,
+            "colorfulness": 40
+          },
+          "labels": {
+            "brightness": "medium",
+            "temperature": "neutral",
+            "density": "dense",
+            "minimalism": "mixed",
+            "contrast": "soft",
+            "colorfulness": "neutral"
+          },
+          "trust_score": 82
+        },
+        "user_input": {
+          "roomType": "living",
+          "styles": ["minimal"],
+          "budget": "low",
+          "furniture": ["sofa"],
+          "requestText": "예산이 낮아서 가성비 위주로 소파 중심 거실을 맞추고 싶어요"
+        },
+        "items": [
+          {
+            "product_key": "fixture://glostad-sofa",
+            "name": "GLOSTAD 글로스타드 2인용소파",
+            "category": "sofa",
+            "price": 140000,
+            "score": 100,
+            "ranking_context": {
+              "category_fit": "preferred",
+              "room_fit": "good",
+              "style_fit": "proxy",
+              "budget_fit": "within",
+              "weak_match_reasons": []
+            }
+          },
+          {
+            "product_key": "fixture://linanas-sofa",
+            "name": "LINANÄS 리나네스 3인용소파, 비슬레 베이지",
+            "category": "sofa",
+            "price": 349000,
+            "score": 100,
+            "ranking_context": {
+              "category_fit": "preferred",
+              "room_fit": "good",
+              "style_fit": "neutral",
+              "budget_fit": "over",
+              "weak_match_reasons": ["budget_uncertain"]
+            }
+          },
+          {
+            "product_key": "fixture://lillehem-sofa",
+            "name": "LILLEHEM 릴레헴 2인용 모듈소파, 비슬레/베이지 목재",
+            "category": "sofa",
+            "price": 441000,
+            "score": 100,
+            "ranking_context": {
+              "category_fit": "preferred",
+              "room_fit": "good",
+              "style_fit": "neutral",
+              "budget_fit": "over",
+              "weak_match_reasons": ["budget_uncertain"]
+            }
+          }
+        ]
+      },
+      "quality_summary": {
+        "weak_result": false,
+        "weak_reasons": [],
+        "preferred_category_in_top3": 3,
+        "within_budget_in_top3": 1,
+        "style_fit_in_top3": 1,
+        "room_fit_in_top3": 3
+      }
+    },
+    {
+      "caseId": "mvp-exp-workspace-sofa-weak",
+      "scenario": "Intentionally weak small workspace sofa case where the top sofa has room mismatch.",
+      "requestSummary": "Small workspace, minimal style, low budget, sofa preference.",
+      "payload": {
+        "room": {
+          "scores": {
+            "brightness": 50,
+            "temperature": 56,
+            "density": 34,
+            "minimalism": 76,
+            "contrast": 30,
+            "colorfulness": 26
+          },
+          "labels": {
+            "brightness": "medium",
+            "temperature": "neutral",
+            "density": "open",
+            "minimalism": "minimal",
+            "contrast": "soft",
+            "colorfulness": "neutral"
+          },
+          "trust_score": 86
+        },
+        "user_input": {
+          "roomType": "workspace",
+          "styles": ["minimal"],
+          "budget": "low",
+          "furniture": ["sofa"],
+          "requestText": "작은 작업 공간인데 저예산으로 소파를 꼭 넣고 싶어요"
+        },
+        "items": [
+          {
+            "product_key": "fixture://glostad-sofa-workspace",
+            "name": "GLOSTAD 글로스타드 2인용소파",
+            "category": "sofa",
+            "price": 140000,
+            "score": 100,
+            "ranking_context": {
+              "category_fit": "preferred",
+              "room_fit": "mismatch",
+              "style_fit": "proxy",
+              "budget_fit": "within",
+              "weak_match_reasons": ["room_type_mismatch"]
+            }
+          },
+          {
+            "product_key": "fixture://tarno-table-workspace",
+            "name": "TÄRNÖ 테르뇌 야외테이블, 블랙 아카시아나무",
+            "category": "table",
+            "price": 29900,
+            "score": 100,
+            "ranking_context": {
+              "category_fit": "mismatch",
+              "room_fit": "good",
+              "style_fit": "proxy",
+              "budget_fit": "within",
+              "weak_match_reasons": ["category_mismatch"]
+            }
+          },
+          {
+            "product_key": "fixture://ammaryd-table-workspace",
+            "name": "ÄMMARYD 엠마뤼드 보조테이블, 화이트",
+            "category": "table",
+            "price": 69900,
+            "score": 100,
+            "ranking_context": {
+              "category_fit": "mismatch",
+              "room_fit": "good",
+              "style_fit": "proxy",
+              "budget_fit": "within",
+              "weak_match_reasons": ["category_mismatch"]
+            }
+          }
+        ]
+      },
+      "quality_summary": {
+        "weak_result": true,
+        "weak_reasons": ["weak_category_match"],
+        "preferred_category_in_top3": 1,
+        "within_budget_in_top3": 3,
+        "style_fit_in_top3": 3,
+        "room_fit_in_top3": 2
+      }
+    },
+    {
+      "caseId": "mvp-exp-dining-table-budget-uncertain",
+      "scenario": "Dining table case with a budget-uncertain over-budget item in the top 3.",
+      "requestSummary": "Dining room, modern style, low budget, table preference.",
+      "payload": {
+        "room": {
+          "scores": {
+            "brightness": 55,
+            "temperature": 52,
+            "density": 50,
+            "minimalism": 54,
+            "contrast": 50,
+            "colorfulness": 45
+          },
+          "labels": {
+            "brightness": "medium",
+            "temperature": "neutral",
+            "density": "balanced",
+            "minimalism": "mixed",
+            "contrast": "balanced",
+            "colorfulness": "neutral"
+          },
+          "trust_score": 80
+        },
+        "user_input": {
+          "roomType": "dining",
+          "styles": ["modern"],
+          "budget": "low",
+          "furniture": ["table"],
+          "requestText": "모던한 다이닝 공간에 작은 테이블을 두고 싶어요"
+        },
+        "items": [
+          {
+            "product_key": "fixture://tarno-table-dining",
+            "name": "TÄRNÖ 테르뇌 야외테이블, 블랙 아카시아나무",
+            "category": "table",
+            "price": 29900,
+            "score": 100,
+            "ranking_context": {
+              "category_fit": "preferred",
+              "room_fit": "good",
+              "style_fit": "explicit",
+              "budget_fit": "within",
+              "weak_match_reasons": []
+            }
+          },
+          {
+            "product_key": "fixture://lisabo-table-dining",
+            "name": "LISABO 리사보 테이블, 블랙",
+            "category": "table",
+            "price": 224000,
+            "score": 100,
+            "ranking_context": {
+              "category_fit": "preferred",
+              "room_fit": "good",
+              "style_fit": "explicit",
+              "budget_fit": "neutral",
+              "weak_match_reasons": []
+            }
+          },
+          {
+            "product_key": "fixture://mittzon-table-dining",
+            "name": "MITTZON 밋손 회의테이블, 자작나무무늬목/블랙",
+            "category": "table",
+            "price": 349000,
+            "score": 100,
+            "ranking_context": {
+              "category_fit": "preferred",
+              "room_fit": "good",
+              "style_fit": "explicit",
+              "budget_fit": "over",
+              "weak_match_reasons": ["budget_uncertain"]
+            }
+          }
+        ]
+      },
+      "quality_summary": {
+        "weak_result": false,
+        "weak_reasons": [],
+        "preferred_category_in_top3": 3,
+        "within_budget_in_top3": 1,
+        "style_fit_in_top3": 3,
+        "room_fit_in_top3": 3
+      }
+    }
+  ]
+}

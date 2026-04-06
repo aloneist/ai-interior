@@ -28,6 +28,8 @@ export type BaseRecommendationProduct = {
     base_score: number
     final_score: number
     category_fit: "preferred" | "room_match" | "mismatch" | "neutral"
+    room_fit: "good" | "mismatch" | "neutral"
+    style_fit: "explicit" | "proxy" | "mismatch" | "neutral"
     budget_fit: "within" | "over" | "under" | "unknown" | "neutral"
     metadata_quality: "complete" | "partial" | "weak"
     weak_match_reasons: string[]
@@ -77,6 +79,8 @@ export type MVPResponse = {
     weak_reasons: string[]
     preferred_category_in_top3: number | null
     within_budget_in_top3: number | null
+    style_fit_in_top3: number | null
+    room_fit_in_top3: number | null
   }
   error?: string
   message?: string
