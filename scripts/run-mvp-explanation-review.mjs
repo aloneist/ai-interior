@@ -29,6 +29,8 @@ const FORBIDDEN_GENERIC_PHRASES = [
   "고급",
   "감성",
   "좋아요",
+  "좋네요",
+  "좋습니다",
   "제공",
 ]
 const CATEGORY_TERMS = {
@@ -164,6 +166,13 @@ function evaluateReason({ reason, item, userInput }) {
 
   if (context.room_fit === "mismatch" && includesAny(reason, BROAD_FIT_CLAIM_TERMS)) {
     failures.push("room_fit_overconfidence")
+  }
+
+  if (
+    context.category_fit === "mismatch" &&
+    includesAny(reason, BROAD_FIT_CLAIM_TERMS)
+  ) {
+    failures.push("category_fit_overconfidence")
   }
 
   return {

@@ -108,6 +108,109 @@
         "weakResultAllowed": true,
         "expectedWeakReasons": ["weak_category_match"]
       }
+    },
+    {
+      "caseId": "controlled-mvp-normal-living-sofa",
+      "dimension": "normal-pass",
+      "scenario": "Normal living-room sofa request with calm/minimal style and low budget.",
+      "reviewFocus": "Checks whether the fixed sofa-anchor and sofa-style paths hold in a normal living-room fixture.",
+      "body": {
+        "imageUrl": "qa://mvp/normal-living-sofa",
+        "qaMode": "controlled_fixture",
+        "qaSkipPersistence": true,
+        "qaRoomAnalysis": {
+          "brightness_score": 52,
+          "color_temperature_score": 54,
+          "spatial_density_score": 58,
+          "minimalism_score": 56,
+          "contrast_score": 40,
+          "colorfulness_score": 34,
+          "dominant_color_hex": "#A8A19A"
+        },
+        "roomType": "living",
+        "styles": ["minimal", "calm"],
+        "budget": "low",
+        "furniture": ["sofa"],
+        "requestText": "작은 거실에 차분하고 미니멀한 저예산 소파를 두고 싶어요"
+      },
+      "expectations": {
+        "minRecommendations": 3,
+        "minGroups": 1,
+        "top3PreferredCategoryMin": 1,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 1,
+        "top3RoomFitMin": 1,
+        "weakResultAllowed": false
+      }
+    },
+    {
+      "caseId": "controlled-mvp-dining-modern-table",
+      "dimension": "room-style",
+      "scenario": "Dining-room modern table request with low budget.",
+      "reviewFocus": "Adds a dining-room style/room combination not covered by the original controlled MVP set.",
+      "body": {
+        "imageUrl": "qa://mvp/dining-modern-table",
+        "qaMode": "controlled_fixture",
+        "qaSkipPersistence": true,
+        "qaRoomAnalysis": {
+          "brightness_score": 58,
+          "color_temperature_score": 50,
+          "spatial_density_score": 48,
+          "minimalism_score": 62,
+          "contrast_score": 52,
+          "colorfulness_score": 42,
+          "dominant_color_hex": "#C8C4B8"
+        },
+        "roomType": "dining",
+        "styles": ["modern"],
+        "budget": "low",
+        "furniture": ["table"],
+        "requestText": "모던한 다이닝 공간에 작은 테이블을 저예산으로 맞추고 싶어요"
+      },
+      "expectations": {
+        "minRecommendations": 3,
+        "minGroups": 1,
+        "top3PreferredCategoryMin": 1,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 1,
+        "top3RoomFitMin": 1,
+        "weakResultAllowed": false
+      }
+    },
+    {
+      "caseId": "controlled-mvp-weak-bedroom-chair",
+      "dimension": "weak-result",
+      "scenario": "Potentially weak bedroom chair request with bright style and low budget.",
+      "reviewFocus": "Checks whether room-type coverage for bedroom chair intent is real or still workspace-biased.",
+      "body": {
+        "imageUrl": "qa://mvp/weak-bedroom-chair",
+        "qaMode": "controlled_fixture",
+        "qaSkipPersistence": true,
+        "qaRoomAnalysis": {
+          "brightness_score": 64,
+          "color_temperature_score": 60,
+          "spatial_density_score": 52,
+          "minimalism_score": 66,
+          "contrast_score": 34,
+          "colorfulness_score": 30,
+          "dominant_color_hex": "#DED6CA"
+        },
+        "roomType": "bedroom",
+        "styles": ["bright", "minimal"],
+        "budget": "low",
+        "furniture": ["chair"],
+        "requestText": "침실 한쪽에 밝고 미니멀한 의자를 저예산으로 두고 싶어요"
+      },
+      "expectations": {
+        "minRecommendations": 3,
+        "minGroups": 1,
+        "top3PreferredCategoryMin": 1,
+        "top3WithinBudgetMin": 1,
+        "top3StyleFitMin": 1,
+        "top3RoomFitMin": 0,
+        "weakResultAllowed": true,
+        "expectedWeakReasons": ["weak_room_match"]
+      }
     }
   ]
 }

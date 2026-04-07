@@ -6,6 +6,18 @@ type ExplainItem = {
   category: string | null
   price: number | null
   score: number
+  description?: string | null
+  color?: string | null
+  material?: string | null
+  metadata?: {
+    style_labels?: string[]
+    category_aliases?: string[]
+    room_affinity?: {
+      strong?: string[]
+      medium?: string[]
+      weak?: string[]
+    }
+  } | null
   ranking_context?: {
     category_fit?: string | null
     room_fit?: string | null
@@ -59,6 +71,10 @@ export function buildRecommendationExplainPayload(params: ExplainPayloadParams) 
       category: x.category,
       price: x.price,
       score: x.score,
+      description: x.description,
+      color: x.color,
+      material: x.material,
+      metadata: x.metadata,
       ranking_context: x.ranking_context,
     })),
   }

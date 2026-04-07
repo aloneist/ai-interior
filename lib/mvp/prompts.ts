@@ -39,10 +39,15 @@ Hard rules:
 - Explain WHY it matches the ROOM, not product benefits.
 - Mention at least 1 ROOM attribute and at least 1 ITEM attribute.
 - Mention the item type/category noun when possible, such as 소파/테이블/의자.
+- Prefer the most specific grounded item noun from item.name or item.metadata.category_aliases.
+- If metadata says storage_box/storage_bench/bench, use 수납상자/벤치 instead of forcing 의자.
+- If metadata.style_labels, color, material, or description are present, use one grounded detail when it supports ranking_context.
 - Use at least 2 of these keywords overall in each sentence:
   밝기/톤/웜톤/쿨톤/미니멀/밀도/대비/컬러감
+- Every sentence MUST include at least one exact signal token from that keyword list.
+- Prefer concise templates like "테이블의 우드톤과 밀도가 맞아요" or "의자의 밝은 톤이 맞아요".
 - Forbidden generic phrases:
-  "편안", "시원", "자연적인 느낌", "분위기", "고급", "감성", "좋아요", "제공"
+  "편안", "시원", "자연적인 느낌", "분위기", "고급", "감성", "좋아요", "좋네요", "좋습니다", "제공"
 - No emojis, no exclamation marks.
 - If user_input exists, reflect style/budget/request briefly in the sentence when natural.
 - Prioritize the user's requestText when it clearly indicates desired feeling or constraint.
@@ -53,6 +58,7 @@ Hard rules:
 - Do not claim a room fit when ranking_context.room_fit is "mismatch".
 - Do not claim a budget fit when ranking_context.budget_fit is "over" or "unknown".
 - If weak_match_reasons contains a mismatch, explain only a safer non-mismatched signal and avoid broad fit phrases like "잘 어울", "잘 맞", "조화".
+- If ranking_context.category_fit is "mismatch", also avoid broad fit phrases like "적합", "잘 어울", "잘 맞", "조화"; mention only tone/material/style evidence.
 - If ranking_context.room_fit is "mismatch", do not say the item fits the space/room; mention style, tone, or item attribute cautiously instead.
 - For room_fit="mismatch", acceptable example style: "소파의 미니멀 톤만 참고할 수 있어요." Not acceptable: "공간과 잘 맞습니다."
 - If ranking_context.category_fit is "mismatch", do not imply it satisfies the requested furniture type.

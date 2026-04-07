@@ -1,0 +1,135 @@
+{
+  "version": "v1",
+  "purpose": "Small MVP metadata overlay for audited high-impact products. Keys are runtime product_key/product_url values from furniture_products.",
+  "products": {
+    "https://www.ikea.com/kr/ko/p/taernoe-table-outdoor-black-light-brown-stained-80165129/": {
+      "source": "catalog-metadata-enrichment-123",
+      "style_labels": ["warm-wood", "calm", "modern"],
+      "style_confidence": {
+        "warm-wood": "high",
+        "calm": "medium",
+        "modern": "medium"
+      },
+      "category_aliases": ["table", "outdoor_table", "small_table", "side_table"],
+      "room_affinity": {
+        "strong": ["dining", "living"],
+        "medium": ["workspace-support", "outdoor"],
+        "weak": []
+      },
+      "description": "Small black and acacia outdoor table with warm wood tone and compact footprint.",
+      "color": "black, light-brown stained acacia",
+      "material": "acacia wood, steel",
+      "evidence": [
+        "name contains black acacia wood and light-brown stained terms",
+        "controlled QA surfaces it in living table and weak workspace sofa cases"
+      ]
+    },
+    "https://www.ikea.com/kr/ko/p/olseroed-side-table-anthracite-birch-effect-dark-yellow-80482052/": {
+      "source": "catalog-metadata-enrichment-125",
+      "style_labels": ["modern", "bright"],
+      "style_confidence": {
+        "modern": "medium",
+        "bright": "medium"
+      },
+      "category_aliases": ["table", "side_table", "small_table"],
+      "room_affinity": {
+        "strong": ["living"],
+        "medium": ["workspace-support", "bedroom"],
+        "weak": []
+      },
+      "description": "Compact anthracite and birch-effect side table with dark-yellow accent.",
+      "color": "anthracite, birch effect, dark yellow",
+      "material": "side table",
+      "evidence": [
+        "product name explicitly says side table",
+        "controlled QA surfaces it in the normal living-room table case",
+        "anthracite and dark-yellow color terms support modern/bright evidence"
+      ]
+    },
+    "https://www.ikea.com/kr/ko/p/loberget-sibben-children-s-desk-chair-with-pad-white-dark-grey-s49501374/": {
+      "source": "catalog-metadata-enrichment-123",
+      "style_labels": ["minimal", "bright"],
+      "style_confidence": {
+        "minimal": "high",
+        "bright": "high"
+      },
+      "category_aliases": ["chair", "desk_chair", "children_chair", "workspace_chair"],
+      "room_affinity": {
+        "strong": ["workspace"],
+        "medium": ["bedroom", "children_room"],
+        "weak": ["living"]
+      },
+      "description": "White and dark-grey compact desk chair with pad for a bright minimal workspace.",
+      "color": "white, dark grey",
+      "material": "chair with pad",
+      "evidence": [
+        "product name explicitly says desk chair and white/dark-grey",
+        "controlled QA repeatedly surfaces it for workspace chair requests"
+      ]
+    },
+    "https://www.ikea.com/kr/ko/p/naemmaroe-storage-box-light-brown-stained-indoor-outdoor-20532738/": {
+      "source": "catalog-metadata-enrichment-123",
+      "style_labels": ["warm-wood", "calm"],
+      "style_confidence": {
+        "warm-wood": "high",
+        "calm": "medium"
+      },
+      "category_aliases": ["storage_box", "storage", "outdoor_storage", "bench_support"],
+      "room_affinity": {
+        "strong": ["outdoor", "entry"],
+        "medium": ["living", "workspace-support"],
+        "weak": ["direct_workspace_chair"]
+      },
+      "description": "Light-brown stained storage box for indoor or outdoor support use, not a primary desk chair.",
+      "color": "light-brown stained",
+      "material": "wood storage box",
+      "evidence": [
+        "product name says storage box",
+        "audited category is chair but semantic role is storage/support"
+      ]
+    },
+    "https://www.ikea.com/kr/ko/p/glostad-2-seat-sofa-knisa-dark-grey-10489009/": {
+      "source": "catalog-metadata-enrichment-123",
+      "style_labels": ["minimal", "calm"],
+      "style_confidence": {
+        "minimal": "medium",
+        "calm": "medium"
+      },
+      "category_aliases": ["sofa", "two_seat_sofa", "compact_sofa"],
+      "room_affinity": {
+        "strong": ["living"],
+        "medium": ["small_living"],
+        "weak": ["workspace"]
+      },
+      "description": "Low-budget compact two-seat dark-grey sofa for living-room seating.",
+      "color": "dark grey",
+      "material": "fabric sofa",
+      "evidence": [
+        "product name says two-seat sofa and dark grey",
+        "controlled weak workspace sofa case should remain weak on room fit"
+      ]
+    },
+    "https://www.ikea.com/kr/ko/p/perjohan-bench-with-storage-pine-20501317/": {
+      "source": "catalog-metadata-enrichment-123",
+      "style_labels": ["warm-wood", "minimal", "calm"],
+      "style_confidence": {
+        "warm-wood": "high",
+        "minimal": "medium",
+        "calm": "medium"
+      },
+      "category_aliases": ["bench", "storage_bench", "seating_support", "chair_support"],
+      "room_affinity": {
+        "strong": ["entry", "living"],
+        "medium": ["workspace-support"],
+        "weak": ["direct_workspace_chair"]
+      },
+      "description": "Pine storage bench that can support seating or organization, but is not a primary desk chair.",
+      "color": "pine wood",
+      "material": "pine",
+      "evidence": [
+        "product name says storage bench and pine",
+        "audited category is chair but semantic role is bench/support"
+      ]
+    }
+  }
+}

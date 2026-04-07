@@ -28,7 +28,10 @@ import {
 } from "@/lib/mvp/room-analysis"
 
 type ScoredFurniture = GroupableFurniture &
-  Pick<RankedFurniture, "ranking_context"> & {
+  Pick<
+    RankedFurniture,
+    "ranking_context" | "description" | "color" | "material" | "catalog_metadata"
+  > & {
     product_key?: string | null
     created_at?: string | null
   }
@@ -287,6 +290,7 @@ export async function POST(req: Request) {
 
     const explainRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",
+      temperature: 0,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -320,6 +324,16 @@ export async function POST(req: Request) {
                 category: item.category,
                 price: item.price,
                 score: item.recommendation_score,
+                description: item.description,
+                color: item.color,
+                material: item.material,
+                metadata: item.catalog_metadata
+                  ? {
+                      style_labels: item.catalog_metadata.style_labels,
+                      category_aliases: item.catalog_metadata.category_aliases,
+                      room_affinity: item.catalog_metadata.room_affinity,
+                    }
+                  : null,
                 ranking_context: item.ranking_context,
               })),
             })
@@ -335,6 +349,16 @@ export async function POST(req: Request) {
         product_key: item.product_key,
         name: item.name,
         category: item.category,
+        description: item.description,
+        color: item.color,
+        material: item.material,
+        metadata: item.catalog_metadata
+          ? {
+              style_labels: item.catalog_metadata.style_labels,
+              category_aliases: item.catalog_metadata.category_aliases,
+              room_affinity: item.catalog_metadata.room_affinity,
+            }
+          : null,
         ranking_context: item.ranking_context,
       })),
       userInput: {

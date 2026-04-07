@@ -89,6 +89,9 @@ export type ScoredFurnitureLike = {
   category: string | null
   price: number | null
   recommendation_score: number
+  catalog_metadata?: {
+    category_aliases?: string[]
+  } | null
 }
 
 const FURNITURE_TYPE_KEYWORDS = {
@@ -132,12 +135,22 @@ const BEDROOM_CATEGORY_KEYWORDS = {
   ],
 } as const
 
-function getFurnitureText(item: Pick<ScoredFurnitureLike, "name" | "category">) {
-  return normalizeText([item.category, item.name].filter(Boolean).join(" "))
+function getFurnitureText(
+  item: Pick<ScoredFurnitureLike, "name" | "category" | "catalog_metadata">
+) {
+  return normalizeText(
+    [
+      item.category,
+      item.name,
+      ...(item.catalog_metadata?.category_aliases ?? []),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  )
 }
 
 function matchesFurnitureType(
-  item: Pick<ScoredFurnitureLike, "name" | "category">,
+  item: Pick<ScoredFurnitureLike, "name" | "category" | "catalog_metadata">,
   furnitureType: keyof typeof FURNITURE_TYPE_KEYWORDS
 ) {
   return includesAnyKeyword(
@@ -147,7 +160,7 @@ function matchesFurnitureType(
 }
 
 export function matchesFurniturePreference(
-  item: Pick<ScoredFurnitureLike, "name" | "category">,
+  item: Pick<ScoredFurnitureLike, "name" | "category" | "catalog_metadata">,
   furnitureType: string
 ) {
   const normalizedFurnitureType = normalizeText(furnitureType)
@@ -164,7 +177,7 @@ export function matchesFurniturePreference(
 }
 
 export function matchesAnyFurniturePreference(
-  item: Pick<ScoredFurnitureLike, "name" | "category">,
+  item: Pick<ScoredFurnitureLike, "name" | "category" | "catalog_metadata">,
   furnitureTypes: string[]
 ) {
   return furnitureTypes.some((furnitureType) =>

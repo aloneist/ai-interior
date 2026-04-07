@@ -5,6 +5,10 @@ import { fileURLToPath } from "node:url"
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = path.resolve(__dirname, "..")
 const FIXTURE_PATH = path.join(ROOT_DIR, "data/qa/controlled-mvp-fixtures-v1.json")
+const OVERLAY_PATH = path.join(
+  ROOT_DIR,
+  "data/catalog/product-metadata-overlay-v1.json"
+)
 const DEFAULT_BASE_URL = "http://127.0.0.1:3000"
 const STYLE_METADATA_KEYS = ["style_labels", "style_confidence", "styleTags"]
 const DIMENSION_KEYS = ["width_cm", "depth_cm", "height_cm"]
@@ -71,7 +75,7 @@ async function supabaseGet(pathname, params) {
 }
 
 function hasStyleMetadata(product) {
-  const metadata = product.metadata_json
+  const metadata = product.catalog_overlay ?? product.metadata_json
 
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     return false
@@ -92,6 +96,8 @@ function hasUsefulDescription(product) {
 }
 
 function inferSemanticNotes(product) {
+  if (product.catalog_overlay?.category_aliases?.length > 0) return []
+
   const name = `${product.product_name ?? ""}`.toLowerCase()
   const category = `${product.category ?? ""}`.toLowerCase()
   const notes = []
@@ -111,8 +117,9 @@ function inferSemanticNotes(product) {
   return notes
 }
 
-function vectorNotes(vector) {
+function vectorNotes(vector, product) {
   if (!vector) return ["missing_vector"]
+  if (hasStyleMetadata(product)) return []
 
   const notes = []
 
@@ -154,7 +161,11 @@ function recommendedMetadata(candidate) {
 async function main() {
   const baseUrl = process.env.APP_BASE_URL || DEFAULT_BASE_URL
   const adminToken = requireEnv("ADMIN_TOKEN")
-  const fixture = JSON.parse(await fs.readFile(FIXTURE_PATH, "utf8"))
+  const [fixture, overlay] = await Promise.all([
+    fs.readFile(FIXTURE_PATH, "utf8").then(JSON.parse),
+    fs.readFile(OVERLAY_PATH, "utf8").then(JSON.parse),
+  ])
+  const overlayProducts = overlay.products ?? {}
   const caseRuns = []
   const productHits = new Map()
 
@@ -240,7 +251,19 @@ async function main() {
   const vectorById = new Map(vectors.map((vector) => [vector.furniture_id, vector]))
   const candidates = [...productHits.values()]
     .map((hit) => {
-      const product = productById.get(hit.id) ?? {}
+      const rawProduct = productById.get(hit.id) ?? {}
+      const catalogOverlay = rawProduct.product_url
+        ? overlayProducts[rawProduct.product_url] ?? null
+        : null
+      const product = catalogOverlay
+        ? {
+            ...rawProduct,
+            description: rawProduct.description ?? catalogOverlay.description,
+            color: rawProduct.color ?? catalogOverlay.color,
+            material: rawProduct.material ?? catalogOverlay.material,
+            catalog_overlay: catalogOverlay,
+          }
+        : rawProduct
       const vector = vectorById.get(hit.id) ?? null
       const candidate = {
         id: hit.id,
@@ -256,7 +279,7 @@ async function main() {
         hasUsefulDescription: hasUsefulDescription(product),
         hasAllDimensions: hasAllDimensions(product),
         semanticNotes: inferSemanticNotes(product),
-        vectorNotes: vectorNotes(vector),
+        vectorNotes: vectorNotes(vector, product),
       }
 
       return {

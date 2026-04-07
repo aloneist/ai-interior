@@ -15,6 +15,18 @@ export type ExplainItemLike = {
   product_key?: string | null
   name: string
   category: string | null
+  description?: string | null
+  color?: string | null
+  material?: string | null
+  metadata?: {
+    style_labels?: string[]
+    category_aliases?: string[]
+    room_affinity?: {
+      strong?: string[]
+      medium?: string[]
+      weak?: string[]
+    }
+  } | null
   ranking_context?: RankingContextLike
 }
 
@@ -50,6 +62,8 @@ export const FORBIDDEN_GENERIC_PHRASES = [
   "고급",
   "감성",
   "좋아요",
+  "좋네요",
+  "좋습니다",
   "제공",
 ] as const
 
@@ -63,6 +77,48 @@ const CATEGORY_LABELS: Record<string, string> = {
   sofa: "소파",
   table: "테이블",
   chair: "의자",
+}
+
+const CATEGORY_ALIAS_TERMS: Record<string, string[]> = {
+  bench: ["벤치", "bench"],
+  bench_support: ["벤치", "수납", "bench"],
+  chair_support: ["벤치", "의자", "수납", "bench"],
+  children_chair: ["어린이용 책상 의자", "의자", "chair"],
+  compact_sofa: ["소파", "sofa"],
+  desk_chair: ["책상 의자", "의자", "chair"],
+  outdoor_storage: ["수납상자", "수납", "storage"],
+  outdoor_table: ["야외테이블", "테이블", "table"],
+  seating_support: ["벤치", "의자", "bench"],
+  side_table: ["보조테이블", "테이블", "table"],
+  small_table: ["테이블", "table"],
+  sofa: ["소파", "sofa"],
+  storage: ["수납", "storage"],
+  storage_bench: ["수납벤치", "벤치", "수납", "bench"],
+  storage_box: ["수납상자", "수납", "storage box", "storage"],
+  table: ["테이블", "table", "탁자"],
+  two_seat_sofa: ["2인용소파", "소파", "sofa"],
+  workspace_chair: ["책상 의자", "의자", "chair"],
+}
+
+const CATEGORY_ALIAS_LABELS: Record<string, string> = {
+  bench: "벤치",
+  bench_support: "벤치",
+  chair_support: "벤치",
+  children_chair: "의자",
+  compact_sofa: "소파",
+  desk_chair: "의자",
+  outdoor_storage: "수납상자",
+  outdoor_table: "테이블",
+  seating_support: "벤치",
+  side_table: "테이블",
+  small_table: "테이블",
+  sofa: "소파",
+  storage: "수납상자",
+  storage_bench: "벤치",
+  storage_box: "수납상자",
+  table: "테이블",
+  two_seat_sofa: "소파",
+  workspace_chair: "의자",
 }
 
 const STYLE_CLAIM_TERMS: Record<string, string[]> = {
@@ -96,16 +152,28 @@ function includesAny(text: string, terms: readonly string[]) {
   return terms.some((term) => text.includes(term))
 }
 
-function getCategoryTerms(category: string | null) {
-  if (!category) return []
-
-  return CATEGORY_TERMS[category] ?? [category]
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)))
 }
 
-function getCategoryLabel(category: string | null) {
-  if (!category) return "제품"
+function getItemCategoryTerms(item: ExplainItemLike) {
+  const categoryTerms = item.category ? CATEGORY_TERMS[item.category] ?? [item.category] : []
+  const aliasTerms =
+    item.metadata?.category_aliases?.flatMap(
+      (alias) => CATEGORY_ALIAS_TERMS[alias] ?? [alias]
+    ) ?? []
 
-  return CATEGORY_LABELS[category] ?? category
+  return uniqueStrings([...categoryTerms, ...aliasTerms])
+}
+
+function getCategoryLabel(item: ExplainItemLike) {
+  const aliases = item.metadata?.category_aliases ?? []
+  const primaryAlias = aliases.find((alias) => CATEGORY_ALIAS_LABELS[alias])
+
+  if (primaryAlias) return CATEGORY_ALIAS_LABELS[primaryAlias]
+  if (!item.category) return "제품"
+
+  return CATEGORY_LABELS[item.category] ?? item.category
 }
 
 function getStyleClaimTerms(styles: string[] = []) {
@@ -139,7 +207,7 @@ export function validateGeneratedExplanation(params: {
     reasons.push("missing_room_signal_term")
   }
 
-  if (!includesAny(reason, getCategoryTerms(params.item.category))) {
+  if (!includesAny(reason, getItemCategoryTerms(params.item))) {
     reasons.push("missing_item_category_signal")
   }
 
@@ -171,12 +239,23 @@ export function validateGeneratedExplanation(params: {
     reasons.push("room_fit_overconfidence")
   }
 
+  if (
+    context.category_fit === "mismatch" &&
+    includesAny(reason, BROAD_FIT_CLAIM_TERMS)
+  ) {
+    reasons.push("category_fit_overconfidence")
+  }
+
   return reasons
 }
 
 export function buildFallbackExplanation(item: ExplainItemLike) {
-  const categoryLabel = getCategoryLabel(item.category)
+  const categoryLabel = getCategoryLabel(item)
   const context = item.ranking_context ?? {}
+  const styleLabels = item.metadata?.style_labels ?? []
+  const usesWarmWood = styleLabels.includes("warm-wood")
+  const usesBright = styleLabels.includes("bright")
+  const usesCalm = styleLabels.includes("calm")
 
   if (context.room_fit === "mismatch") {
     return `${categoryLabel}의 톤만 참고할 수 있어요.`
@@ -191,6 +270,18 @@ export function buildFallbackExplanation(item: ExplainItemLike) {
   }
 
   if (context.style_fit === "explicit" || context.style_fit === "proxy") {
+    if (usesWarmWood) {
+      return `${categoryLabel}의 우드톤과 밀도가 맞아요.`
+    }
+
+    if (usesBright) {
+      return `${categoryLabel}의 밝기와 톤이 맞아요.`
+    }
+
+    if (usesCalm) {
+      return `${categoryLabel}의 차분한 톤이 맞아요.`
+    }
+
     return `${categoryLabel}의 톤과 미니멀감이 맞아요.`
   }
 

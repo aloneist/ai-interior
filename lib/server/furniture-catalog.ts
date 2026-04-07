@@ -1,4 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import {
+  applyCatalogMetadataOverlay,
+  type CatalogMetadataOverlay,
+} from "@/lib/server/catalog-metadata-overlay"
 
 type JsonLike =
   | string
@@ -16,6 +20,10 @@ export type RuntimeFurnitureRecord = {
   price: number | null
   image_url: string | null
   product_key: string | null
+  description: string | null
+  color: string | null
+  material: string | null
+  catalog_metadata: CatalogMetadataOverlay | null
   created_at: string | null
 }
 
@@ -143,7 +151,7 @@ function firstString(value: JsonLike | null) {
 }
 
 function toRuntimeFurnitureRecord(row: PublishedProductRow): RuntimeFurnitureRecord {
-  return {
+  return applyCatalogMetadataOverlay({
     id: row.id,
     name: row.product_name,
     brand: row.brand,
@@ -157,8 +165,12 @@ function toRuntimeFurnitureRecord(row: PublishedProductRow): RuntimeFurnitureRec
       name: row.product_name,
       category: row.category,
     }),
+    description: row.description,
+    color: row.color,
+    material: row.material,
+    catalog_metadata: null,
     created_at: row.created_at,
-  }
+  })
 }
 
 export async function loadRuntimeFurnitureRecordsByIds(

@@ -146,6 +146,48 @@ const MINIMAL_STYLE_CONTRADICTION_KEYWORDS = [
   "패턴",
 ]
 
+const DIRECT_CHAIR_ALIASES = new Set([
+  "chair",
+  "desk_chair",
+  "children_chair",
+  "workspace_chair",
+  "armchair",
+])
+
+const DIRECT_CHAIR_SUPPORT_ALIASES = new Set([
+  "bench",
+  "bench_support",
+  "chair_support",
+  "outdoor_storage",
+  "seating_support",
+  "storage",
+  "storage_bench",
+  "storage_box",
+])
+
+const DIRECT_CHAIR_ROLE_KEYWORDS = [
+  "armchair",
+  "암체어",
+  "desk chair",
+  "책상 의자",
+  "children chair",
+  "어린이용 책상 의자",
+  "workspace chair",
+  "chair",
+  "의자",
+]
+
+const DIRECT_CHAIR_SUPPORT_ROLE_KEYWORDS = [
+  "bench",
+  "벤치",
+  "storage",
+  "수납",
+  "storage box",
+  "수납상자",
+  "storage bench",
+  "수납벤치",
+]
+
 function normalizeKeyPart(value: string | null | undefined) {
   return normalizeText(value).replace(/\s+/g, " ")
 }
@@ -162,7 +204,25 @@ function buildDeduplicationKey(item: RuntimeFurnitureRecord) {
 }
 
 function getFurnitureSearchText(item: RuntimeFurnitureRecord) {
-  return normalizeText([item.brand, item.name, item.category].filter(Boolean).join(" "))
+  const metadata = item.catalog_metadata
+
+  return normalizeText(
+    [
+      item.brand,
+      item.name,
+      item.category,
+      item.description,
+      item.color,
+      item.material,
+      ...(metadata?.style_labels ?? []),
+      ...(metadata?.category_aliases ?? []),
+      ...(metadata?.room_affinity.strong ?? []),
+      ...(metadata?.room_affinity.medium ?? []),
+      ...(metadata?.evidence ?? []),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  )
 }
 
 function isSofaLike(item: RuntimeFurnitureRecord) {
@@ -192,6 +252,50 @@ function getMetadataPenalty(
   if (normalizeText(userInput?.budget) && item.price == null) penalty -= 8
 
   return penalty
+}
+
+function hasDirectChairIntent(userInput?: UserPreferenceInput) {
+  return (userInput?.furniture ?? []).some((value) => {
+    const normalized = normalizeText(value)
+
+    return normalized === "chair" || normalized === "의자"
+  })
+}
+
+function getFurnitureSemanticRoleText(item: RuntimeFurnitureRecord) {
+  return normalizeText(
+    [item.name, item.material]
+      .filter(Boolean)
+      .join(" ")
+  )
+}
+
+function isSupportOnlyForDirectChair(item: RuntimeFurnitureRecord) {
+  const aliases = item.catalog_metadata?.category_aliases ?? []
+  const semanticRoleText = getFurnitureSemanticRoleText(item)
+
+  if (aliases.some((alias) => DIRECT_CHAIR_ALIASES.has(alias))) {
+    return false
+  }
+
+  if (includesAnyKeyword(semanticRoleText, DIRECT_CHAIR_ROLE_KEYWORDS)) {
+    return false
+  }
+
+  return (
+    aliases.some((alias) => DIRECT_CHAIR_SUPPORT_ALIASES.has(alias)) ||
+    includesAnyKeyword(semanticRoleText, DIRECT_CHAIR_SUPPORT_ROLE_KEYWORDS)
+  )
+}
+
+function getDirectChairSemanticPenalty(
+  item: RuntimeFurnitureRecord,
+  userInput?: UserPreferenceInput
+) {
+  if (!hasDirectChairIntent(userInput)) return 0
+  if (!isSupportOnlyForDirectChair(item)) return 0
+
+  return -32
 }
 
 function getRequestedStyleTokens(userInput?: UserPreferenceInput) {
@@ -332,6 +436,7 @@ function getRoomFit(
       category: item.category,
       price: item.price,
       recommendation_score: 0,
+      catalog_metadata: item.catalog_metadata,
     },
     userInput?.roomType
   )
@@ -403,6 +508,10 @@ function getCategoryFit(
   )
 
   if (selectedFurniture.length > 0) {
+    if (hasDirectChairIntent(userInput) && isSupportOnlyForDirectChair(item)) {
+      return "mismatch"
+    }
+
     return matchesAnyFurniturePreference(item, selectedFurniture)
       ? "preferred"
       : "mismatch"
@@ -415,6 +524,7 @@ function getCategoryFit(
       category: item.category,
       price: item.price,
       recommendation_score: 0,
+      catalog_metadata: item.catalog_metadata,
     },
     userInput?.roomType
   )
@@ -569,6 +679,7 @@ export function rankFurnitureForRecommendations(params: {
           category: furniture.category,
           price: furniture.price,
           recommendation_score: baseScore,
+          catalog_metadata: furniture.catalog_metadata,
         },
         userInput
       )
@@ -582,13 +693,18 @@ export function rankFurnitureForRecommendations(params: {
       const roomAdjustment = getRoomFitAdjustment(roomFit)
       const budgetPenalty = getBudgetPenalty(furniture.price, userInput?.budget)
       const metadataPenalty = getMetadataPenalty(furniture, userInput)
+      const directChairSemanticPenalty = getDirectChairSemanticPenalty(
+        furniture,
+        userInput
+      )
       const finalScore = clampScore(
         baseScore +
           preferenceScore +
           styleAdjustment +
           roomAdjustment +
           budgetPenalty +
-          metadataPenalty
+          metadataPenalty +
+          directChairSemanticPenalty
       )
       const categoryFit = getCategoryFit(furniture, userInput)
       const budgetFit = getBudgetFit(furniture.price, userInput?.budget)
