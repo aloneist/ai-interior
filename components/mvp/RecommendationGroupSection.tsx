@@ -1,15 +1,17 @@
 import RecommendationProductCard from "@/components/mvp/RecommendationProductCard"
-import type { GroupedRecommendation } from "@/types/mvp"
+import type { CanonicalProductId } from "@/lib/mvp/product-contract"
+import type { GroupedRecommendation, ProductLike } from "@/types/mvp"
 
 type RecommendationGroupSectionProps = {
   groups: GroupedRecommendation[]
   selectedGroupId: GroupedRecommendation["id"]
   setSelectedGroupId: (id: GroupedRecommendation["id"]) => void
-  savedProductIds: string[]
-  comparedProductIds: string[]
-  onToggleSaved: (id: string) => void
-  onToggleCompared: (id: string) => void
-  onOpenDetail: (id: string) => void
+  savedProductIds: CanonicalProductId[]
+  comparedProductIds: CanonicalProductId[]
+  onToggleSaved: (id: CanonicalProductId) => void
+  onToggleCompared: (id: CanonicalProductId) => void
+  onOpenDetail: (id: CanonicalProductId) => void
+  onOpenExternal: (product: ProductLike) => void
 }
 
 export default function RecommendationGroupSection({
@@ -21,6 +23,7 @@ export default function RecommendationGroupSection({
   onToggleSaved,
   onToggleCompared,
   onOpenDetail,
+  onOpenExternal,
 }: RecommendationGroupSectionProps) {
   const selectedGroup =
     groups.find((group) => group.id === selectedGroupId) ?? null
@@ -67,6 +70,7 @@ export default function RecommendationGroupSection({
                 onToggleSaved={onToggleSaved}
                 onToggleCompared={onToggleCompared}
                 onOpenDetail={onOpenDetail}
+                onOpenExternal={onOpenExternal}
               />
             ))}
           </div>

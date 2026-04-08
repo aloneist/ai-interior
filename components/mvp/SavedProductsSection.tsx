@@ -1,10 +1,11 @@
+import type { CanonicalProductId } from "@/lib/mvp/product-contract"
 import type { ProductLike } from "@/types/mvp"
 
 type SavedProductsSectionProps = {
   savedProducts: ProductLike[]
-  onOpenProduct: (id: string) => void
+  onOpenProduct: (id: CanonicalProductId) => void
   onOpenExternal: (item: ProductLike) => void
-  onToggleSaved: (id: string) => void
+  onToggleSaved: (id: CanonicalProductId) => void
 }
 
 export default function SavedProductsSection({

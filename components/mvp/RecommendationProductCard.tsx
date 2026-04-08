@@ -1,12 +1,14 @@
+import type { CanonicalProductId } from "@/lib/mvp/product-contract"
 import type { ProductLike } from "@/types/mvp"
 
 type RecommendationProductCardProps = {
   product: ProductLike
-  savedProductIds: string[]
-  comparedProductIds: string[]
-  onToggleSaved: (id: string) => void
-  onToggleCompared: (id: string) => void
-  onOpenDetail: (id: string) => void
+  savedProductIds: CanonicalProductId[]
+  comparedProductIds: CanonicalProductId[]
+  onToggleSaved: (id: CanonicalProductId) => void
+  onToggleCompared: (id: CanonicalProductId) => void
+  onOpenDetail: (id: CanonicalProductId) => void
+  onOpenExternal: (product: ProductLike) => void
 }
 
 export default function RecommendationProductCard({
@@ -16,6 +18,7 @@ export default function RecommendationProductCard({
   onToggleSaved,
   onToggleCompared,
   onOpenDetail,
+  onOpenExternal,
 }: RecommendationProductCardProps) {
   const isSaved = savedProductIds.includes(product.id)
   const isCompared = comparedProductIds.includes(product.id)
@@ -86,7 +89,7 @@ export default function RecommendationProductCard({
         </p>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
         <button
           className={`flex min-h-[44px] items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium transition ${
             isCompared
@@ -102,6 +105,12 @@ export default function RecommendationProductCard({
           onClick={() => onOpenDetail(product.id)}
         >
           자세히 보기
+        </button>
+        <button
+          className="flex min-h-[44px] items-center justify-center rounded-xl bg-black px-3 py-2 text-sm font-medium text-white transition"
+          onClick={() => onOpenExternal(product)}
+        >
+          상품 보기
         </button>
       </div>
     </article>

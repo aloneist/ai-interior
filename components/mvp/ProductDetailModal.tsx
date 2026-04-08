@@ -1,12 +1,13 @@
+import type { CanonicalProductId } from "@/lib/mvp/product-contract"
 import type { ProductLike } from "@/types/mvp"
 
 type ProductDetailModalProps = {
   product: ProductLike | null
-  savedProductIds: string[]
-  comparedProductIds: string[]
+  savedProductIds: CanonicalProductId[]
+  comparedProductIds: CanonicalProductId[]
   onClose: () => void
-  onToggleSaved: (id: string) => void
-  onToggleCompared: (id: string) => void
+  onToggleSaved: (id: CanonicalProductId) => void
+  onToggleCompared: (id: CanonicalProductId) => void
   onOpenExternal: (product: ProductLike) => void
 }
 
@@ -20,6 +21,10 @@ export default function ProductDetailModal({
   onOpenExternal,
 }: ProductDetailModalProps) {
   if (!product) return null
+
+  const priceText =
+    product.price_text ??
+    (product.price ? `${product.price.toLocaleString()}원` : "-")
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -52,8 +57,7 @@ export default function ProductDetailModal({
 
         <div className="mt-5 space-y-3 text-sm">
           <div>
-            <span className="font-medium">가격</span>{" "}
-            {product.price ? `${product.price.toLocaleString()}원` : "-"}
+            <span className="font-medium">가격</span> {priceText}
           </div>
           <div>
             <span className="font-medium">추천 점수</span>{" "}

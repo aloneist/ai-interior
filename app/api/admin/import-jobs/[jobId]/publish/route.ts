@@ -3,10 +3,8 @@ export const runtime = "nodejs"
 import { NextResponse } from "next/server"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 import {
-  buildPublishedProductPayloadFromImportJob,
-  markImportJobPublished,
+  publishImportJobToCanonicalProduct,
   type ImportJobRecord,
-  validateImportJobForPublish,
 } from "@/lib/server/furniture-catalog"
 
 function isAuthorizedAdmin(req: Request) {
@@ -59,6 +57,7 @@ export async function POST(
           "extracted_option_summaries",
           "extracted_confidence",
           "extraction_notes",
+          "published_product_id",
         ].join(", ")
       )
       .eq("id", jobId)
@@ -83,39 +82,28 @@ export async function POST(
     }
 
     const typedImportJob = importJob as unknown as ImportJobRecord
-    const eligibility = validateImportJobForPublish(typedImportJob)
+    const publishResult = await publishImportJobToCanonicalProduct({
+      supabase,
+      importJob: typedImportJob,
+    })
 
-    if (!eligibility.ok) {
+    if (!publishResult.ok) {
       return NextResponse.json(
         {
           error: "Import job is not publishable",
-          code: eligibility.code,
-          message: eligibility.message,
+          code: publishResult.eligibility.code,
+          message: publishResult.eligibility.message,
         },
         { status: 422 }
       )
     }
 
-    const productPayload = buildPublishedProductPayloadFromImportJob(typedImportJob)
-
-    const { data: publishedProduct, error: publishError } = await supabase
-      .from("furniture_products")
-      .upsert(productPayload, { onConflict: "source_url" })
-      .select()
-      .single()
-
-    if (publishError) throw publishError
-
-    await markImportJobPublished({
-      supabase,
-      importJobId: typedImportJob.id,
-      publishedProductId: publishedProduct.id,
-    })
-
     return NextResponse.json({
       success: true,
       import_job_id: typedImportJob.id,
-      published_product: publishedProduct,
+      published_product_id: publishResult.publishedProduct.id,
+      repeated_publish: publishResult.repeated,
+      published_product: publishResult.publishedProduct,
     })
   } catch (error: unknown) {
     console.error("IMPORT JOB PUBLISH ERROR:", error)

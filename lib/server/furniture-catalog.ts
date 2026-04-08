@@ -53,6 +53,7 @@ export type ImportJobRecord = {
   extracted_option_summaries: JsonLike | null
   extracted_confidence: number | null
   extraction_notes: string | null
+  published_product_id: string | null
 }
 
 export type PublishEligibility =
@@ -350,30 +351,50 @@ export async function markImportJobPublished(params: {
   publishedProductId: string
 }) {
   const { supabase, importJobId, publishedProductId } = params
-  const baseUpdate = {
-    status: IMPORT_JOB_STATUS.published,
-  }
 
-  const { error: updateWithLinkError } = await supabase
+  const { error } = await supabase
     .from("import_jobs")
     .update({
-      ...baseUpdate,
+      status: IMPORT_JOB_STATUS.published,
       published_product_id: publishedProductId,
     })
     .eq("id", importJobId)
 
-  if (!updateWithLinkError) {
-    return
+  if (error) throw error
+}
+
+export async function publishImportJobToCanonicalProduct(params: {
+  supabase: SupabaseClient
+  importJob: ImportJobRecord
+}) {
+  const { supabase, importJob } = params
+  const eligibility = validateImportJobForPublish(importJob)
+
+  if (!eligibility.ok) {
+    return { ok: false as const, eligibility }
   }
 
-  if (!/published_product_id/i.test(updateWithLinkError.message)) {
-    throw updateWithLinkError
+  const productPayload = buildPublishedProductPayloadFromImportJob(importJob)
+
+  const { data: publishedProduct, error: publishError } = await supabase
+    .from("furniture_products")
+    .upsert(productPayload, { onConflict: "source_url" })
+    .select()
+    .single()
+
+  if (publishError) throw publishError
+
+  await markImportJobPublished({
+    supabase,
+    importJobId: importJob.id,
+    publishedProductId: publishedProduct.id,
+  })
+
+  return {
+    ok: true as const,
+    publishedProduct,
+    repeated:
+      Boolean(importJob.published_product_id) &&
+      importJob.published_product_id === publishedProduct.id,
   }
-
-  const { error: fallbackError } = await supabase
-    .from("import_jobs")
-    .update(baseUpdate)
-    .eq("id", importJobId)
-
-  if (fallbackError) throw fallbackError
 }

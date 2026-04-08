@@ -11,6 +11,7 @@ import ProductDetailModal from "@/components/mvp/ProductDetailModal"
 import RecommendationGroupSection from "@/components/mvp/RecommendationGroupSection"
 import RecommendationProductCard from "@/components/mvp/RecommendationProductCard"
 import useMvpFlow from "@/hooks/useMvpFlow"
+import { MAX_COMPARE_PRODUCTS } from "@/lib/mvp/product-contract"
 import type {
   BudgetLevel,
   FurnitureType,
@@ -99,6 +100,21 @@ export default function Home() {
     styleOptions: STYLE_OPTIONS,
   })
 
+  const roomLabel = findLabel(ROOM_OPTIONS, roomType) ?? "공간 미선택"
+  const styleSummary = formatSelectedLabels(STYLE_OPTIONS, styles, "분위기 미선택")
+  const furnitureSummary = formatSelectedLabels(
+    FURNITURE_OPTIONS,
+    furniture,
+    "가구 미선택"
+  )
+  const budgetSummary = findLabel(BUDGET_OPTIONS, budget) ?? "예산 미선택"
+  const activeImageLabel = localPreviewUrl ? "업로드 이미지" : "이미지 URL"
+  const hasGroupedRecommendations =
+    Boolean(data?.grouped_recommendations?.length)
+  const hasFlatRecommendations = Boolean(data?.recommendations.length)
+  const hasRecommendationResults =
+    hasGroupedRecommendations || hasFlatRecommendations
+
   return (
     <main className="min-h-screen bg-white text-black">
       <div className="mx-auto max-w-5xl px-6 py-8 md:px-8 md:py-10">
@@ -186,6 +202,13 @@ export default function Home() {
               <div className="text-sm text-gray-500">추천 결과</div>
               <h2 className="mt-2 text-3xl font-bold">{headerTitle}</h2>
               <p className="mt-2 text-gray-600">{headerSubtitle}</p>
+              <div className="mt-4 flex flex-wrap gap-2 text-sm">
+                <ResultContextPill label="이미지" value={activeImageLabel} />
+                <ResultContextPill label="공간" value={roomLabel} />
+                <ResultContextPill label="분위기" value={styleSummary} />
+                <ResultContextPill label="예산" value={budgetSummary} />
+                <ResultContextPill label="가구" value={furnitureSummary} />
+              </div>
 
               <div className="mt-6 grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
                 <div className="rounded-2xl border p-4">
@@ -235,6 +258,9 @@ export default function Home() {
                 <div>
                   <div className="text-sm text-gray-500">추천 조합</div>
                   <h3 className="text-2xl font-bold">내 공간에 맞춘 추천안</h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    저장, 비교, 자세히 보기, 상품 보기를 같은 상품 기준으로 이어갈 수 있어요.
+                  </p>
                 </div>
 
                 <div className="flex gap-2 text-sm">
@@ -242,14 +268,20 @@ export default function Home() {
                     저장 {savedProductIds.length}
                   </div>
                   <div className="rounded-full border px-3 py-1">
-                    비교 {comparedProductIds.length}/2
+                    비교 {comparedProductIds.length}/{MAX_COMPARE_PRODUCTS}
                   </div>
                 </div>
               </div>
 
-              {data.grouped_recommendations && data.grouped_recommendations.length > 0 ? (
+              {data.quality_summary?.weak_result && (
+                <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm leading-6 text-gray-700">
+                  조건에 완전히 맞는 후보가 충분하지 않아 일부 추천은 근접 후보로 구성했어요.
+                </div>
+              )}
+
+              {hasGroupedRecommendations ? (
                 <RecommendationGroupSection
-                  groups={data.grouped_recommendations}
+                  groups={data.grouped_recommendations ?? []}
                   selectedGroupId={selectedGroupId}
                   setSelectedGroupId={setSelectedGroupId}
                   savedProductIds={savedProductIds}
@@ -257,8 +289,9 @@ export default function Home() {
                   onToggleSaved={toggleSavedProduct}
                   onToggleCompared={toggleComparedProduct}
                   onOpenDetail={setSelectedProductId}
+                  onOpenExternal={openExternalProductLink}
                 />
-              ) : (
+              ) : hasFlatRecommendations ? (
                 <div className="mt-4 grid gap-4 md:grid-cols-3">
                   {data.recommendations.map((r) => (
                     <RecommendationProductCard
@@ -269,18 +302,23 @@ export default function Home() {
                       onToggleSaved={toggleSavedProduct}
                       onToggleCompared={toggleComparedProduct}
                       onOpenDetail={setSelectedProductId}
+                      onOpenExternal={openExternalProductLink}
                     />
                   ))}
                 </div>
+              ) : (
+                <EmptyRecommendationNotice onRetry={resetResultAndGoPreference} />
               )}
             </div>
 
-            <SavedProductsSection
-              savedProducts={savedProducts}
-              onOpenProduct={setSelectedProductId}
-              onOpenExternal={openExternalProductLink}
-              onToggleSaved={toggleSavedProduct}
-            />
+            {hasRecommendationResults && (
+              <SavedProductsSection
+                savedProducts={savedProducts}
+                onOpenProduct={setSelectedProductId}
+                onOpenExternal={openExternalProductLink}
+                onToggleSaved={toggleSavedProduct}
+              />
+            )}
 
             <div className="mt-8">
               <button
@@ -314,4 +352,57 @@ function Row({ label, value }: { label: string; value: number }) {
       <span className="font-semibold">{value}</span>
     </div>
   )
+}
+
+function ResultContextPill({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="rounded-full border border-gray-200 px-3 py-1 text-gray-700">
+      <span className="text-gray-500">{label}</span>{" "}
+      <span className="font-medium text-gray-900">{value}</span>
+    </div>
+  )
+}
+
+function EmptyRecommendationNotice({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-sm leading-6 text-gray-700">
+      <div className="font-semibold text-gray-900">
+        조건에 맞는 구매 후보를 찾지 못했어요
+      </div>
+      <p className="mt-2">
+        예산이나 필요한 가구 조건을 조금 넓히면 추천 후보를 다시 찾을 수 있어요.
+      </p>
+      <button
+        className="mt-4 rounded-xl border border-gray-300 bg-white px-4 py-2 font-medium text-gray-900"
+        onClick={onRetry}
+      >
+        조건 바꿔서 다시 보기
+      </button>
+    </div>
+  )
+}
+
+function findLabel<T extends string>(
+  options: Array<{ value: T; label: string }>,
+  value: T | null
+) {
+  return value ? options.find((item) => item.value === value)?.label : null
+}
+
+function formatSelectedLabels<T extends string>(
+  options: Array<{ value: T; label: string }>,
+  values: T[],
+  fallback: string
+) {
+  const labels = options
+    .filter((item) => values.includes(item.value))
+    .map((item) => item.label)
+
+  return labels.length > 0 ? labels.join(", ") : fallback
 }

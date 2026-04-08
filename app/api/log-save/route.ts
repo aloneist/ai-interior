@@ -2,21 +2,25 @@ export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
 import {
+  normalizeRecommendationActionPayload,
   updateRecommendationAction,
   validateRecommendationActionRequest,
 } from "@/lib/server/recommendation-actions"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 
 type LogSaveRequest = {
-  request_id: string
-  furniture_id: string
+  request_id?: string
+  canonical_product_id?: string
+  furniture_id?: string
   saved: boolean
 }
 
 export async function POST(req: Request) {
   try {
-    const { request_id, furniture_id, saved } =
-      (await req.json()) as LogSaveRequest
+    const payload = (await req.json()) as LogSaveRequest
+    const { request_id, furniture_id } =
+      normalizeRecommendationActionPayload(payload)
+    const { saved } = payload
 
     const validation = validateRecommendationActionRequest({
       request_id,
@@ -41,7 +45,7 @@ export async function POST(req: Request) {
     const data = await updateRecommendationAction({
       supabase,
       request_id,
-      furniture_id,
+      canonicalProductId: furniture_id,
       patch: { saved },
     })
 

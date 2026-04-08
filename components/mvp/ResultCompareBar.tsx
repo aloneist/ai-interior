@@ -1,9 +1,13 @@
+import {
+  MAX_COMPARE_PRODUCTS,
+  type CanonicalProductId,
+} from "@/lib/mvp/product-contract"
 import type { ProductLike } from "@/types/mvp"
 
 type ResultCompareBarProps = {
   comparedProducts: ProductLike[]
-  onOpenProduct: (id: string) => void
-  onRemoveCompared: (id: string) => void
+  onOpenProduct: (id: CanonicalProductId) => void
+  onRemoveCompared: (id: CanonicalProductId) => void
 }
 
 export default function ResultCompareBar({
@@ -16,7 +20,7 @@ export default function ResultCompareBar({
       ? "비교할 상품을 선택해주세요"
       : comparedProducts.length === 1
         ? "1개 선택됨 · 하나를 더 담으면 가격과 점수를 바로 비교해드려요"
-        : "2개 선택됨 · 비교 요약이 아래에 표시됩니다"
+        : `${MAX_COMPARE_PRODUCTS}개 선택됨 · 비교 요약이 아래에 표시됩니다`
 
   return (
     <div className="mt-8 rounded-3xl border border-gray-200 bg-gray-50/90 p-4 sm:p-5">
@@ -25,12 +29,12 @@ export default function ResultCompareBar({
           <div className="min-w-0">
             <div className="text-sm font-semibold text-gray-900">비교 바</div>
             <div className="mt-1 text-xs leading-5 text-gray-500">
-              최대 2개까지 비교 후보를 유지할 수 있어요
+              최대 {MAX_COMPARE_PRODUCTS}개까지 비교 후보를 유지할 수 있어요
             </div>
           </div>
 
           <div className="inline-flex w-fit items-center rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700">
-            선택 {comparedProducts.length}/2
+            선택 {comparedProducts.length}/{MAX_COMPARE_PRODUCTS}
           </div>
         </div>
 

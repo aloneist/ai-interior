@@ -26,6 +26,7 @@ import {
   normalizeRoomAnalysis,
   trustNote,
 } from "@/lib/mvp/room-analysis"
+import { resolveOutboundProductUrl } from "@/lib/mvp/product-contract"
 
 type ScoredFurniture = GroupableFurniture &
   Pick<
@@ -69,33 +70,6 @@ type MvpRequestBody = {
 function formatPriceText(price: number | null) {
   if (!price || !Number.isFinite(price)) return "-"
   return `${price.toLocaleString()}원`
-}
-
-function buildExternalProductUrl(item: {
-  affiliate_url?: string | null
-  product_key?: string | null
-  brand?: string | null
-  name?: string | null
-}): string | undefined {
-  const affiliateUrl = item.affiliate_url?.trim() ?? ""
-
-  if (/^https?:\/\//i.test(affiliateUrl)) {
-    return affiliateUrl
-  }
-
-  const rawKey = item.product_key?.trim() ?? ""
-
-  if (/^https?:\/\//i.test(rawKey)) {
-    return rawKey
-  }
-
-  const query = [item.brand, item.name].filter(Boolean).join(" ").trim()
-
-  if (!query) return undefined
-
-  return `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(
-    query
-  )}`
 }
 
 function getErrorMessage(error: unknown) {
@@ -260,7 +234,7 @@ export async function POST(req: Request) {
 
     const rankedItems: ScoredFurniture[] = ranked.items.map((item) => ({
       ...item,
-      external_url: buildExternalProductUrl(item),
+      external_url: resolveOutboundProductUrl(item),
     }))
 
     const top3 = rankedItems.slice(0, 3)
@@ -281,15 +255,19 @@ export async function POST(req: Request) {
       const { error: recommendationsInsertError } = await supabase
         .from("recommendations")
         .insert(
-          top3.map((item) => ({
-            request_id,
-            event_source: qaMode ? "qa_controlled_fixture" : "web",
-            space_id: spaceRow.id,
-            furniture_id: item.id,
-            compatibility_score: item.recommendation_score,
-            clicked: false,
-            saved: false,
-          }))
+          top3.map((item) => {
+            const canonicalProductId = item.id
+
+            return {
+              request_id,
+              event_source: qaMode ? "qa_controlled_fixture" : "web",
+              space_id: spaceRow.id,
+              furniture_id: canonicalProductId,
+              compatibility_score: item.recommendation_score,
+              clicked: false,
+              saved: false,
+            }
+          })
         )
 
       if (recommendationsInsertError) throw recommendationsInsertError
@@ -383,7 +361,7 @@ export async function POST(req: Request) {
 
     const top3WithReasons = top3.map((item) => ({
       ...item,
-      external_url: item.external_url ?? buildExternalProductUrl(item),
+      external_url: resolveOutboundProductUrl(item),
       reason_short:
         reasonMap.get(item.product_key ?? "") ??
         "공간 톤과 대비에 무난히 맞는 선택이에요.",
@@ -399,7 +377,7 @@ export async function POST(req: Request) {
           external_url:
             matched?.external_url ??
             product.external_url ??
-            buildExternalProductUrl(product),
+            resolveOutboundProductUrl(product),
           reason_short:
             matched?.reason_short ??
             product.reason_short ??

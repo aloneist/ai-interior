@@ -28,45 +28,12 @@ comment on column public.furniture_products.product_url is
 comment on column public.furniture_products.affiliate_url is
   'Preferred outbound purchase URL when present.';
 comment on column public.furniture_products.material is
-  'Material only. Dimensions belong only in width_cm, depth_cm, and height_cm.';
+  'Material only. Dimensions belong only in width_cm, depth_cm, and height_cm. Parser/vision noise is normalized in application code before persistence.';
 
-do $$
-begin
-  if to_regclass('public.furniture_products') is not null
-    and not exists (
-      select 1
-      from pg_constraint
-      where conname = 'furniture_products_material_not_dimension_like_check'
-        and conrelid = 'public.furniture_products'::regclass
-    )
-  then
-    alter table public.furniture_products
-      add constraint furniture_products_material_not_dimension_like_check
-      check (
-        material is null
-        or (
-          material !~* '\m(width|depth|height|length|diameter|seat width|seat depth|seat height|w|d|h)\M\s*[:=]?\s*\d'
-          and material !~* '(폭|깊이|높이|길이|지름|좌면폭|좌면\s*깊이|좌면\s*높이)\s*[:=]?\s*\d'
-          and material !~* '\d+(\.\d+)?\s*(cm|mm|m)\M'
-          and material !~* '\d+(\.\d+)?\s*[xX×]\s*\d+(\.\d+)?'
-        )
-      )
-      not valid;
-  end if;
-end $$;
-
-update public.furniture_products
-set material = null
-where material is not null
-  and (
-    material ~* '\m(width|depth|height|length|diameter|seat width|seat depth|seat height|w|d|h)\M\s*[:=]?\s*\d'
-    or material ~* '(폭|깊이|높이|길이|지름|좌면폭|좌면\s*깊이|좌면\s*높이)\s*[:=]?\s*\d'
-    or material ~* '\d+(\.\d+)?\s*(cm|mm|m)\M'
-    or material ~* '\d+(\.\d+)?\s*[xX×]\s*\d+(\.\d+)?'
-  );
-
+-- Keep material cleanup in application code. The earlier DB regex checks were
+-- too broad for noisy commerce text and could reject legitimate material labels.
 alter table if exists public.furniture_products
-  validate constraint furniture_products_material_not_dimension_like_check;
+  drop constraint if exists furniture_products_material_not_dimension_like_check;
 
 alter table if exists public.import_jobs
   add column if not exists published_product_id uuid;
@@ -87,6 +54,16 @@ begin
     and not exists (
       select 1
       from pg_constraint
+      where conrelid = 'public.import_jobs'::regclass
+        and contype = 'c'
+        and pg_get_constraintdef(oid) ilike '%status%'
+        and pg_get_constraintdef(oid) ilike '%pending_review%'
+        and pg_get_constraintdef(oid) ilike '%published%'
+        and pg_get_constraintdef(oid) ilike '%rejected%'
+    )
+    and not exists (
+      select 1
+      from pg_constraint
       where conname = 'import_jobs_status_contract_check'
         and conrelid = 'public.import_jobs'::regclass
     )
@@ -101,37 +78,8 @@ begin
   end if;
 end $$;
 
-do $$
-begin
-  if to_regclass('public.import_jobs') is not null
-    and exists (
-      select 1
-      from information_schema.columns
-      where table_schema = 'public'
-        and table_name = 'import_jobs'
-        and column_name = 'extracted_material'
-    )
-    and not exists (
-      select 1
-      from pg_constraint
-      where conname = 'import_jobs_extracted_material_not_dimension_like_check'
-        and conrelid = 'public.import_jobs'::regclass
-    )
-  then
-    alter table public.import_jobs
-      add constraint import_jobs_extracted_material_not_dimension_like_check
-      check (
-        extracted_material is null
-        or (
-          extracted_material !~* '\m(width|depth|height|length|diameter|seat width|seat depth|seat height|w|d|h)\M\s*[:=]?\s*\d'
-          and extracted_material !~* '(폭|깊이|높이|길이|지름|좌면폭|좌면\s*깊이|좌면\s*높이)\s*[:=]?\s*\d'
-          and extracted_material !~* '\d+(\.\d+)?\s*(cm|mm|m)\M'
-          and extracted_material !~* '\d+(\.\d+)?\s*[xX×]\s*\d+(\.\d+)?'
-        )
-      )
-      not valid;
-  end if;
-end $$;
+alter table if exists public.import_jobs
+  drop constraint if exists import_jobs_extracted_material_not_dimension_like_check;
 
 do $$
 begin
@@ -251,31 +199,10 @@ comment on table public.furniture_vectors is
 comment on column public.furniture_vectors.furniture_id is
   'Legacy column name. Runtime expects this value to match public.furniture_products.id; FK migration away from public.furniture is deferred until live constraints are audited.';
 
-do $$
-begin
-  if to_regclass('public.furniture_vectors') is not null
-    and not exists (
-      select 1
-      from pg_indexes
-      where schemaname = 'public'
-        and indexname = 'furniture_vectors_one_current_row_per_product_idx'
-    )
-  then
-    if exists (
-      select 1
-      from public.furniture_vectors
-      group by furniture_id
-      having count(*) > 1
-      limit 1
-    )
-    then
-      raise notice 'Skipped furniture_vectors unique product index: duplicate furniture_id rows exist.';
-    else
-      create unique index furniture_vectors_one_current_row_per_product_idx
-        on public.furniture_vectors (furniture_id);
-    end if;
-  end if;
-end $$;
+-- Do not add another furniture_vectors(furniture_id) unique index here. Existing
+-- schemas commonly use furniture_id as the primary/unique key, and this step is
+-- not introducing vector versioning.
+drop index if exists public.furniture_vectors_one_current_row_per_product_idx;
 
 do $$
 begin

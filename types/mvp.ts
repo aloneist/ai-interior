@@ -1,3 +1,8 @@
+import type {
+  CanonicalProductId,
+  ProductDetailSource,
+} from "@/lib/mvp/product-contract"
+
 export type Step = "intro" | "input" | "preference" | "loading" | "result"
 
 export type RoomType = "living" | "bedroom" | "workspace" | "dining"
@@ -15,7 +20,8 @@ export type StyleTag =
   | "hotel"
 
 export type BaseRecommendationProduct = {
-  id: string
+  /** Canonical public.furniture_products.id used for save/compare/click actions. */
+  id: CanonicalProductId
   name: string
   brand: string | null
   category: string | null
@@ -106,6 +112,11 @@ export type UploadImageResponse = {
 export type ProductLike =
   | RecommendationProduct
   | GroupedRecommendationProduct
+
+export type ProductDetailContract = {
+  source: ProductDetailSource
+  product: ProductLike
+}
 
 export type CompareSummary = {
   left: ProductLike
