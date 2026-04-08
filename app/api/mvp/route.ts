@@ -72,10 +72,17 @@ function formatPriceText(price: number | null) {
 }
 
 function buildExternalProductUrl(item: {
+  affiliate_url?: string | null
   product_key?: string | null
   brand?: string | null
   name?: string | null
 }): string | undefined {
+  const affiliateUrl = item.affiliate_url?.trim() ?? ""
+
+  if (/^https?:\/\//i.test(affiliateUrl)) {
+    return affiliateUrl
+  }
+
   const rawKey = item.product_key?.trim() ?? ""
 
   if (/^https?:\/\//i.test(rawKey)) {

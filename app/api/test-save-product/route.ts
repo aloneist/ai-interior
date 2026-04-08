@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { parseIkeaPayload } from '@/lib/parsers/router';
+import { normalizeMaterialForPersistence } from '@/lib/server/furniture-catalog';
 import { createClient } from '@/lib/supabase/server';
 
 export async function GET() {
@@ -40,7 +41,7 @@ export async function GET() {
       product_url: 'https://test.example.com/ikea/glostad-2-seat-sofa',
       description: parsed.description,
       color: parsed.color,
-      material: parsed.material,
+      material: normalizeMaterialForPersistence(parsed.material),
       width_cm: parsed.width_cm,
       depth_cm: parsed.depth_cm,
       height_cm: parsed.height_cm,

@@ -3,7 +3,10 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getOpenAIClient } from "@/lib/server/openai";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
-import { IMPORT_JOB_STATUS } from "@/lib/server/furniture-catalog";
+import {
+  IMPORT_JOB_STATUS,
+  normalizeMaterialForPersistence,
+} from "@/lib/server/furniture-catalog";
 import { parseIkeaPayload } from "@/lib/parsers";
 import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
 import {
@@ -332,8 +335,8 @@ Rules:
     const rawDimensionText =
       parserResult?.metadata_json?.raw_dimension_text_preview ?? null;
     const rawMaterialText =
-      parserResult?.material ??
-      enriched.extracted_material ??
+      normalizeMaterialForPersistence(parserResult?.material) ??
+      normalizeMaterialForPersistence(enriched.extracted_material) ??
       null;
     const rawColorText = Array.isArray(enriched.extracted_color_options)
       ? enriched.extracted_color_options.join(" ")
@@ -414,7 +417,9 @@ Rules:
       extracted_brand: parserResult?.brand ?? null,
       extracted_category: finalCategory,
       extracted_price: parseNumberOrNull(parserResult?.price),
-      extracted_material: enriched.extracted_material ?? null,
+      extracted_material:
+        normalizeMaterialForPersistence(enriched.extracted_material) ??
+        normalizeMaterialForPersistence(parserResult?.material),
       extracted_width_cm: parseNumberOrNull(parserResult?.width_cm),
       extracted_depth_cm: parseNumberOrNull(parserResult?.depth_cm),
       extracted_height_cm: parseNumberOrNull(parserResult?.height_cm),

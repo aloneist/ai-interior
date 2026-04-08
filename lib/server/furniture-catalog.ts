@@ -20,6 +20,7 @@ export type RuntimeFurnitureRecord = {
   price: number | null
   image_url: string | null
   product_key: string | null
+  affiliate_url: string | null
   description: string | null
   color: string | null
   material: string | null
@@ -80,6 +81,7 @@ type PublishedProductRow = {
   currency: string | null
   image_url: string | null
   product_url: string
+  affiliate_url: string | null
   description: string | null
   color: string | null
   material: string | null
@@ -102,6 +104,7 @@ type PublishableProductPayload = {
   currency: string
   image_url: string | null
   product_url: string
+  affiliate_url: string | null
   description: string | null
   color: string | null
   material: string | null
@@ -114,6 +117,31 @@ type PublishableProductPayload = {
 
 function normalizeText(value: string | null | undefined) {
   return (value ?? "").trim()
+}
+
+export function normalizeMaterialForPersistence(
+  value: string | null | undefined
+) {
+  const text = normalizeText(value)
+
+  if (!text) return null
+
+  const compact = text.replace(/\s+/g, " ")
+
+  if (
+    /\b(?:width|depth|height|length|diameter|seat width|seat depth|seat height|w|d|h)\s*[:=]?\s*\d/i.test(
+      compact
+    ) ||
+    /(?:폭|깊이|높이|길이|지름|좌면폭|좌면\s*깊이|좌면\s*높이)\s*[:=]?\s*\d/i.test(
+      compact
+    ) ||
+    /\d+(?:\.\d+)?\s*(?:cm|mm|m)\b/i.test(compact) ||
+    /\d+(?:\.\d+)?\s*[xX×]\s*\d+(?:\.\d+)?/.test(compact)
+  ) {
+    return null
+  }
+
+  return compact
 }
 
 function normalizeKeyPart(value: string | null | undefined) {
@@ -165,9 +193,10 @@ function toRuntimeFurnitureRecord(row: PublishedProductRow): RuntimeFurnitureRec
       name: row.product_name,
       category: row.category,
     }),
+    affiliate_url: row.affiliate_url,
     description: row.description,
     color: row.color,
-    material: row.material,
+    material: normalizeMaterialForPersistence(row.material),
     catalog_metadata: null,
     created_at: row.created_at,
   })
@@ -198,6 +227,7 @@ export async function loadRuntimeFurnitureRecordsByIds(
         "currency",
         "image_url",
         "product_url",
+        "affiliate_url",
         "description",
         "color",
         "material",
@@ -279,8 +309,6 @@ export function buildPublishedProductPayloadFromImportJob(
     throw new Error("Import job is missing source_url")
   }
 
-  const productUrl = normalizeText(job.extracted_affiliate_url) || sourceUrl
-
   return {
     source_site: sourceSite,
     source_url: sourceUrl,
@@ -290,10 +318,11 @@ export function buildPublishedProductPayloadFromImportJob(
     price: typeof job.extracted_price === "number" ? job.extracted_price : null,
     currency: "KRW",
     image_url: firstString(job.extracted_image_urls),
-    product_url: productUrl,
+    product_url: sourceUrl,
+    affiliate_url: normalizeText(job.extracted_affiliate_url) || null,
     description: normalizeText(job.extraction_notes) || null,
     color: firstString(job.extracted_color_options),
-    material: normalizeText(job.extracted_material) || null,
+    material: normalizeMaterialForPersistence(job.extracted_material),
     width_cm:
       typeof job.extracted_width_cm === "number" ? job.extracted_width_cm : null,
     depth_cm:
