@@ -316,29 +316,39 @@ export default function useMvpFlow({
   }
 
   const openExternalProductLink = async (product: ProductLike) => {
-    await fetch("/api/log-click", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        request_id: data?.request_id,
-        canonical_product_id: product.id,
-      }),
-    })
-
     const outboundUrl = resolveOutboundProductUrl(product)
 
-    if (outboundUrl) {
-      window.open(outboundUrl, "_blank", "noopener,noreferrer")
+    if (!outboundUrl) {
+      alert("이 상품의 외부 링크를 찾지 못했어요.")
       return
     }
 
-    alert("이 상품의 외부 링크를 찾지 못했어요.")
+    window.open(outboundUrl, "_blank", "noopener,noreferrer")
+
+    if (!data?.request_id) {
+      return
+    }
+
+    void fetch("/api/log-click", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        request_id: data.request_id,
+        canonical_product_id: product.id,
+      }),
+    }).catch((error) => {
+      console.error("CLICK LOG ERROR:", error)
+    })
   }
 
   const runMVP = async () => {
     setLoading(true)
     setError(null)
     setData(null)
+    setSelectedGroupId("balanced")
+    setSelectedProductId(null)
+    setSavedProductIds([])
+    setComparedProductIds([])
     setStep("loading")
 
     try {
@@ -357,7 +367,11 @@ export default function useMvpFlow({
           const uploadJson = (await uploadRes.json()) as UploadImageResponse
 
           if (!uploadRes.ok || !uploadJson.success || !uploadJson.imageUrl) {
-            setError(uploadJson.message || uploadJson.error || "이미지 업로드 실패")
+            setError(
+              normalizeMvpErrorMessage(
+                uploadJson.message || uploadJson.error || "이미지 업로드 실패"
+              )
+            )
             setStep("input")
             return
           }
@@ -414,6 +428,8 @@ export default function useMvpFlow({
     setData(null)
     setSelectedGroupId("balanced")
     setSelectedProductId(null)
+    setSavedProductIds([])
+    setComparedProductIds([])
     setStep("preference")
   }
 

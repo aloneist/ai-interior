@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import type { CanonicalProductId } from "@/lib/mvp/product-contract"
 import type { ProductLike } from "@/types/mvp"
 
@@ -20,6 +21,19 @@ export default function ProductDetailModal({
   onToggleCompared,
   onOpenExternal,
 }: ProductDetailModalProps) {
+  useEffect(() => {
+    if (!product) return
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose()
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [onClose, product])
+
   if (!product) return null
 
   const priceText =
@@ -27,14 +41,26 @@ export default function ProductDetailModal({
     (product.price ? `${product.price.toLocaleString()}원` : "-")
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="max-h-[90vh] w-full max-w-xl overflow-auto rounded-3xl bg-white p-6 shadow-xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      role="presentation"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-xl overflow-auto rounded-3xl bg-white p-6 shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-detail-title"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-sm text-gray-500">
               {product.brand ?? "브랜드 미상"} · {product.category ?? "카테고리"}
             </div>
-            <h3 className="mt-1 text-2xl font-bold">{product.name}</h3>
+            <h3 id="product-detail-title" className="mt-1 text-2xl font-bold">
+              {product.name}
+            </h3>
           </div>
           <button
             className="rounded-full border px-3 py-1 text-sm"

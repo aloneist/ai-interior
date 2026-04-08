@@ -15,6 +15,17 @@ It is not intended for:
 
 ## Files
 - `data/qa/recommendation-baseline-v1.json`: structured baseline cases and shared review dimensions
+- `docs/qa/mvp-manual-browser-smoke-checklist.md`: real-browser MVP smoke checklist
+- `docs/qa/mvp-manual-browser-smoke-execution-procedure.md`: operator procedure for later browser smoke execution
+- `docs/qa/mvp-manual-browser-smoke-result-template.md`: reusable manual browser smoke report template
+
+## MVP Smoke Layers
+Use two distinct validation layers:
+
+- Operational/API smoke: run `npm run qa:mvp-operational-smoke` against an already-running app. This checks `/api/mvp`, recommendation payload shape, canonical product IDs, affiliate URL preference, and save/click logging with `canonical_product_id`.
+- Manual browser smoke: run the checklist in a real browser. This checks rendering, file input or image URL input, disabled/loading states, save/compare UI behavior, product detail modal behavior, and outbound new-tab transition.
+
+Operational/API smoke is useful under constrained environments, but it does not replace manual browser smoke.
 
 ## Review approach
 Use this baseline as a manual-review-first checklist.

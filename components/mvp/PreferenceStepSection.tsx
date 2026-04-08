@@ -134,8 +134,13 @@ export default function PreferenceStepSection({
           disabled={!canSubmit || loading}
           onClick={onSubmit}
         >
-          추천 받기
+          {loading ? "추천을 준비하는 중" : "추천 받기"}
         </button>
+        {!canSubmit && !loading && (
+          <p className="mt-2 text-xs text-gray-500">
+            분위기, 예산, 필요한 가구를 선택하면 추천을 시작할 수 있어요.
+          </p>
+        )}
       </div>
     </section>
   )

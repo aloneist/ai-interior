@@ -102,6 +102,11 @@ export default function InputStepSection({
         >
           다음
         </button>
+        {!canGoNext && (
+          <p className="mt-2 text-xs text-gray-500">
+            사진 또는 공개 이미지 URL과 공간 유형을 선택해주세요.
+          </p>
+        )}
       </div>
     </section>
   )
