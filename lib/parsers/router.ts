@@ -2,6 +2,7 @@ import { parseChairSnapshot } from "@/lib/parsers/categories/chair";
 import { parseSofaSnapshot } from "@/lib/parsers/categories/sofa";
 import { parseTableSnapshot } from "@/lib/parsers/categories/table";
 import { extractIkeaSnapshot } from "@/lib/parsers/sites/ikea";
+import { parseLivartPayload } from "@/lib/parsers/sites/livart";
 import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
 
 export function parseIkeaPayload(raw: unknown): ParsedFurnitureProduct {
@@ -58,4 +59,21 @@ export function compareIkeaParsers(raw: unknown) {
         snapshot.metadata_json?.debug?.category_scores ?? null,
     },
   };
+}
+
+export function parseProductPayload(params: {
+  sourceSite: string;
+  raw: unknown;
+}): ParsedFurnitureProduct | null {
+  const { sourceSite, raw } = params;
+
+  if (sourceSite === "ikea") {
+    return parseIkeaPayload(raw);
+  }
+
+  if (sourceSite === "livart") {
+    return parseLivartPayload(raw);
+  }
+
+  return null;
 }

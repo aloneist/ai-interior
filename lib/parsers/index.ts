@@ -1,1 +1,5 @@
-export { parseIkeaPayload, compareIkeaParsers } from "@/lib/parsers/router";
+export {
+  parseIkeaPayload,
+  compareIkeaParsers,
+  parseProductPayload,
+} from "@/lib/parsers/router";

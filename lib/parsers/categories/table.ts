@@ -1,10 +1,11 @@
 import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
 import type { RawProductSnapshot } from "@/lib/parsers/shared/snapshot";
 import {
-  toCm,
   maxOrNull,
   normalizeJoinedDimensionLabels,
   collectLabeledDimensionCandidates,
+  parseCompactDimensionLine,
+  selectDimensionDebugSelection,
 } from "@/lib/parsers/shared/dimensions";
 import { normalizeText } from "@/lib/parsers/shared/text";
 
@@ -121,6 +122,7 @@ function extractCompactDimensions(text: string): {
   width_cm: number | null;
   depth_cm: number | null;
   height_cm: number | null;
+  range_policy_applied: "max" | null;
 } {
   const lines = text
     .split("\n")
@@ -140,22 +142,13 @@ function extractCompactDimensions(text: string): {
 
     if (hasStrong || hasWeak) continue;
 
-    const compact = line.match(
-      /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(cm|mm|m)/i
-    );
-
-    if (!compact) continue;
-
-    const a = Number(compact[1].replace(",", "."));
-    const b = Number(compact[2].replace(",", "."));
-    const c = Number(compact[3].replace(",", "."));
-    const unit = compact[4];
-
-    if ([a, b, c].every(Number.isFinite)) {
+    const compact = parseCompactDimensionLine(line);
+    if (compact) {
       return {
-        width_cm: toCm(a, unit),
-        depth_cm: toCm(b, unit),
-        height_cm: toCm(c, unit),
+        width_cm: compact.width_cm,
+        depth_cm: compact.depth_cm,
+        height_cm: compact.height_cm,
+        range_policy_applied: compact.range_policy_applied,
       };
     }
   }
@@ -164,6 +157,7 @@ function extractCompactDimensions(text: string): {
     width_cm: null,
     depth_cm: null,
     height_cm: null,
+    range_policy_applied: null,
   };
 }
 
@@ -184,6 +178,9 @@ function extractDimensions(sectionText: string | null): {
   derived_width_from_diameter: boolean;
   derived_depth_from_diameter: boolean;
   raw_dimension_text: string | null;
+  selected_dimension_line: string | null;
+  selected_dimension_unit: string | null;
+  range_policy_applied: "max" | null;
 } {
   if (!sectionText) {
     return {
@@ -194,10 +191,20 @@ function extractDimensions(sectionText: string | null): {
       derived_width_from_diameter: false,
       derived_depth_from_diameter: false,
       raw_dimension_text: null,
+      selected_dimension_line: null,
+      selected_dimension_unit: null,
+      range_policy_applied: null,
     };
   }
 
   const normalizedSectionText = normalizeDimensionSectionForParsing(sectionText);
+  const dimensionDebug = selectDimensionDebugSelection({
+    text: normalizedSectionText,
+    excludeIfLineHas: [
+      ...STRONGLY_EXCLUDED_DIMENSION_CONTEXTS,
+      ...WEAKLY_EXCLUDED_DIMENSION_CONTEXTS,
+    ],
+  });
 
   const primaryWidthCandidates = collectDimensionCandidatesFromLines({
     text: normalizedSectionText,
@@ -237,6 +244,7 @@ function extractDimensions(sectionText: string | null): {
 
   let derived_width_from_diameter = false;
   let derived_depth_from_diameter = false;
+  let range_policy_applied = dimensionDebug.range_policy_applied;
 
   if (width_cm == null || depth_cm == null || height_cm == null) {
     const compact = extractCompactDimensions(normalizedSectionText);
@@ -244,6 +252,7 @@ function extractDimensions(sectionText: string | null): {
     width_cm = width_cm ?? compact.width_cm;
     depth_cm = depth_cm ?? compact.depth_cm;
     height_cm = height_cm ?? compact.height_cm;
+    range_policy_applied = range_policy_applied ?? compact.range_policy_applied;
   }
 
   // compact fallback 이후에도 한 번 더 보정
@@ -274,6 +283,9 @@ function extractDimensions(sectionText: string | null): {
     derived_width_from_diameter,
     derived_depth_from_diameter,
     raw_dimension_text: normalizedSectionText || null,
+    selected_dimension_line: dimensionDebug.selected_dimension_line,
+    selected_dimension_unit: dimensionDebug.selected_dimension_unit,
+    range_policy_applied,
   };
 }
 
@@ -302,6 +314,9 @@ export function parseTableSnapshot(
       category_hint: snapshot.category_hint,
       raw_dimension_text_preview:
         dims.raw_dimension_text?.slice(0, 1000) ?? null,
+      selected_dimension_line: dims.selected_dimension_line,
+      selected_dimension_unit: dims.selected_dimension_unit,
+      range_policy_applied: dims.range_policy_applied,
       diameter_cm: dims.diameter_cm,
       derived_width_from_diameter: dims.derived_width_from_diameter,
       derived_depth_from_diameter: dims.derived_depth_from_diameter,

@@ -1,10 +1,11 @@
 import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
 import type { RawProductSnapshot } from "@/lib/parsers/shared/snapshot";
 import {
-  toCm,
   maxOrNull,
   normalizeJoinedDimensionLabels,
   collectLabeledDimensionCandidates,
+  parseCompactDimensionLine,
+  selectDimensionDebugSelection,
 } from "@/lib/parsers/shared/dimensions";
 import { normalizeText } from "@/lib/parsers/shared/text";
 
@@ -172,7 +173,7 @@ function extractHeightCandidatesFromLines(text: string): {
   return {
     overall_height_cm,
     backrest_height_cm,
-    resolved_height_cm: overall_height_cm ?? backrest_height_cm,
+    resolved_height_cm: overall_height_cm,
   };
 }
 
@@ -180,6 +181,7 @@ function extractCompactDimensions(text: string): {
   width_cm: number | null;
   depth_cm: number | null;
   height_cm: number | null;
+  range_policy_applied: "max" | null;
 } {
   const lines = text
     .split("\n")
@@ -199,22 +201,13 @@ function extractCompactDimensions(text: string): {
 
     if (hasStrong || hasWeak) continue;
 
-    const compact = line.match(
-      /(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)\s*(cm|mm|m)/i
-    );
-
-    if (!compact) continue;
-
-    const a = Number(compact[1].replace(",", "."));
-    const b = Number(compact[2].replace(",", "."));
-    const c = Number(compact[3].replace(",", "."));
-    const unit = compact[4];
-
-    if ([a, b, c].every(Number.isFinite)) {
+    const compact = parseCompactDimensionLine(line);
+    if (compact) {
       return {
-        width_cm: toCm(a, unit),
-        depth_cm: toCm(b, unit),
-        height_cm: toCm(c, unit),
+        width_cm: compact.width_cm,
+        depth_cm: compact.depth_cm,
+        height_cm: compact.height_cm,
+        range_policy_applied: compact.range_policy_applied,
       };
     }
   }
@@ -223,6 +216,7 @@ function extractCompactDimensions(text: string): {
     width_cm: null,
     depth_cm: null,
     height_cm: null,
+    range_policy_applied: null,
   };
 }
 
@@ -233,6 +227,9 @@ function extractDimensions(sectionText: string | null): {
   overall_height_cm: number | null;
   backrest_height_cm: number | null;
   raw_dimension_text: string | null;
+  selected_dimension_line: string | null;
+  selected_dimension_unit: string | null;
+  range_policy_applied: "max" | null;
 } {
   if (!sectionText) {
     return {
@@ -242,10 +239,20 @@ function extractDimensions(sectionText: string | null): {
       overall_height_cm: null,
       backrest_height_cm: null,
       raw_dimension_text: null,
+      selected_dimension_line: null,
+      selected_dimension_unit: null,
+      range_policy_applied: null,
     };
   }
 
   const normalizedSectionText = normalizeDimensionSectionForParsing(sectionText);
+  const dimensionDebug = selectDimensionDebugSelection({
+    text: normalizedSectionText,
+    excludeIfLineHas: [
+      ...STRONGLY_EXCLUDED_DIMENSION_CONTEXTS,
+      ...WEAKLY_EXCLUDED_DIMENSION_CONTEXTS,
+    ],
+  });
 
   const primaryWidthCandidates = collectDimensionCandidatesFromLines({
     text: normalizedSectionText,
@@ -283,7 +290,7 @@ const height_cm = heightCandidates.resolved_height_cm;
 const overall_height_cm = heightCandidates.overall_height_cm;
 const backrest_height_cm = heightCandidates.backrest_height_cm;
 
-if (width_cm == null || depth_cm == null || height_cm == null) {
+  if (width_cm == null || depth_cm == null || height_cm == null) {
   const compact = extractCompactDimensions(normalizedSectionText);
 
   return {
@@ -293,6 +300,10 @@ if (width_cm == null || depth_cm == null || height_cm == null) {
     overall_height_cm,
     backrest_height_cm,
     raw_dimension_text: normalizedSectionText || null,
+    selected_dimension_line: dimensionDebug.selected_dimension_line,
+    selected_dimension_unit: dimensionDebug.selected_dimension_unit,
+    range_policy_applied:
+      dimensionDebug.range_policy_applied ?? compact.range_policy_applied,
   };
 }
 
@@ -303,6 +314,9 @@ return {
   overall_height_cm,
   backrest_height_cm,
   raw_dimension_text: normalizedSectionText || null,
+  selected_dimension_line: dimensionDebug.selected_dimension_line,
+  selected_dimension_unit: dimensionDebug.selected_dimension_unit,
+  range_policy_applied: dimensionDebug.range_policy_applied,
 };
 }
 
@@ -330,6 +344,9 @@ export function parseSofaSnapshot(
   source_url: snapshot.source_url,
   category_hint: snapshot.category_hint,
   raw_dimension_text_preview: dims.raw_dimension_text?.slice(0, 1000) ?? null,
+  selected_dimension_line: dims.selected_dimension_line,
+  selected_dimension_unit: dims.selected_dimension_unit,
+  range_policy_applied: dims.range_policy_applied,
   overall_height_cm: dims.overall_height_cm,
   backrest_height_cm: dims.backrest_height_cm,
   site_metadata: snapshot.metadata_json ?? {},

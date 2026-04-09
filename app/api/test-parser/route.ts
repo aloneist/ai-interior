@@ -49,6 +49,15 @@ function makeParserNotes(params: {
   lines.push(
     `dimensions: W ${parsed?.width_cm ?? "null"} / D ${parsed?.depth_cm ?? "null"} / H ${parsed?.height_cm ?? "null"}`
   );
+  lines.push(
+    `selected_dimension_line: ${parsed?.metadata_json?.selected_dimension_line ?? "-"}`
+  );
+  lines.push(
+    `selected_dimension_unit: ${parsed?.metadata_json?.selected_dimension_unit ?? "-"}`
+  );
+  lines.push(
+    `range_policy_applied: ${parsed?.metadata_json?.range_policy_applied ?? "-"}`
+  );
 
   lines.push(`diameter_cm: ${parsed?.metadata_json?.diameter_cm ?? "-"}`);
   lines.push(
@@ -137,6 +146,12 @@ export async function POST(req: Request) {
     snapshot?.dimension_section_text ??
     snapshot?.metadata_json?.debug?.raw_dimension_text_preview ??
     null,
+  selected_dimension_line:
+    parsed?.metadata_json?.selected_dimension_line ?? null,
+  selected_dimension_unit:
+    parsed?.metadata_json?.selected_dimension_unit ?? null,
+  range_policy_applied:
+    parsed?.metadata_json?.range_policy_applied ?? null,
   diameter_cm: parsed?.metadata_json?.diameter_cm ?? null,
   derived_width_from_diameter:
     parsed?.metadata_json?.derived_width_from_diameter ?? false,

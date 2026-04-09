@@ -3,11 +3,11 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getOpenAIClient } from "@/lib/server/openai";
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin";
+import { parseProductPayload } from "@/lib/parsers";
 import {
   IMPORT_JOB_STATUS,
   normalizeMaterialForPersistence,
 } from "@/lib/server/furniture-catalog";
-import { parseIkeaPayload } from "@/lib/parsers";
 import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
 import {
   normalizeCategoryText,
@@ -196,6 +196,12 @@ function buildExtractionNotes(params: {
 
   raw_dimension_text_preview:
     parserResult?.metadata_json?.raw_dimension_text_preview ?? null,
+  selected_dimension_line:
+    parserResult?.metadata_json?.selected_dimension_line ?? null,
+  selected_dimension_unit:
+    parserResult?.metadata_json?.selected_dimension_unit ?? null,
+  range_policy_applied:
+    parserResult?.metadata_json?.range_policy_applied ?? null,
   diameter_cm: parserResult?.metadata_json?.diameter_cm ?? null,
   derived_width_from_diameter:
     parserResult?.metadata_json?.derived_width_from_diameter ?? false,
@@ -266,8 +272,10 @@ export async function POST(req: Request) {
       full_html: html,
     };
 
-    const parserResult: ParserResult =
-      sourceSite === "ikea" ? parseIkeaPayload(raw) : null;
+    const parserResult: ParserResult = parseProductPayload({
+      sourceSite,
+      raw,
+    });
 
     const aiRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",

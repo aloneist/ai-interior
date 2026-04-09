@@ -4,6 +4,9 @@ export type ParserMetadata = {
   source_url?: string | null;
   category_hint?: string | null;
   raw_dimension_text_preview?: string | null;
+  selected_dimension_line?: string | null;
+  selected_dimension_unit?: string | null;
+  range_policy_applied?: "max" | null;
   diameter_cm?: number | null;
   derived_width_from_diameter?: boolean;
   derived_depth_from_diameter?: boolean;
@@ -36,6 +39,8 @@ export type CollectLabeledDimensionCandidatesParams = {
   excludeIfLineHas?: string[];
 };
 
+export type DimensionRangePolicy = "max" | null;
+
 export type ParserDebugMeta = {
   html_length: number;
   has_dimension_keyword: boolean;
@@ -43,6 +48,9 @@ export type ParserDebugMeta = {
   depth_cm: number | null;
   height_cm: number | null;
   raw_dimension_text_preview: string | null;
+  selected_dimension_line?: string | null;
+  selected_dimension_unit?: string | null;
+  range_policy_applied?: DimensionRangePolicy;
   parser_version: string;
   category_hint?: string | null;
   category_hint_source_preview?: string | null;
