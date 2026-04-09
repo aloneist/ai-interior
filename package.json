@@ -22,6 +22,7 @@
     "qa:mvp-explanation-review": "node scripts/run-mvp-explanation-review.mjs",
     "qa:controlled-mvp": "node scripts/run-controlled-mvp-qa.mjs",
     "qa:catalog-metadata-audit": "node scripts/catalog-metadata-enrichment-audit.mjs",
+    "qa:mvp-browser-capability": "node scripts/mvp-browser-capability-check.mjs",
     "qa:mvp-operational-smoke": "node scripts/mvp-operational-smoke.mjs",
     "automation:smoke": "node automation/demo/run-smoke-test.cjs",
     "automation:smoke:report": "node automation/demo/run-smoke-report.mjs",
@@ -40,6 +41,7 @@
     "sharp": "^0.34.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

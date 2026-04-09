@@ -252,18 +252,33 @@ export async function POST(req: Request) {
     })
 
     if (!skipPersistence) {
+      const surfacedProducts = new Map<string, { score: number }>()
+
+      for (const item of top3) {
+        surfacedProducts.set(item.id, {
+          score: item.recommendation_score,
+        })
+      }
+
+      for (const group of recommendationGroups) {
+        for (const product of group.products) {
+          surfacedProducts.set(product.id, {
+            score: product.recommendation_score,
+          })
+        }
+      }
+
       const { error: recommendationsInsertError } = await supabase
         .from("recommendations")
         .insert(
-          top3.map((item) => {
-            const canonicalProductId = item.id
+          [...surfacedProducts.entries()].map(([canonicalProductId, item]) => {
 
             return {
               request_id,
               event_source: qaMode ? "qa_controlled_fixture" : "web",
               space_id: spaceRow.id,
               furniture_id: canonicalProductId,
-              compatibility_score: item.recommendation_score,
+              compatibility_score: item.score,
               clicked: false,
               saved: false,
             }

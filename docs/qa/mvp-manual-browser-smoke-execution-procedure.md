@@ -24,6 +24,16 @@ This is not browser automation. Do not mark browser smoke complete from API-only
 npm run dev
 ```
 
+Optional capability proof before the manual run:
+
+```bash
+npm run build
+npm start -- --hostname 127.0.0.1
+APP_BASE_URL=http://127.0.0.1:3000 npm run qa:mvp-browser-capability
+```
+
+This verified path avoids dev-server lock noise in constrained environments, opens the app in Playwright Chromium, and writes a screenshot under `/tmp`. It is an environment check only; it does not replace the manual browser smoke steps below.
+
 6. If running operational API smoke for the same target, run:
 
 ```bash
