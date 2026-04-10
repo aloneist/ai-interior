@@ -159,6 +159,20 @@ function resolveLivartCategoryHint(params: {
     [params.title, params.description, params.sourceUrl].filter(Boolean).join(" ")
   );
 
+  if (/(화장대|드레서)/i.test(joined)) {
+    return {
+      category: "desk",
+      confidence: "high",
+      scores: [
+        {
+          category: "desk",
+          score: 20,
+          matched_keywords: ["화장대"],
+        },
+      ],
+    };
+  }
+
   if (/(거실장|TV장|티비장)/i.test(joined)) {
     return {
       category: "storage",

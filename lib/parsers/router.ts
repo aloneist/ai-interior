@@ -1,6 +1,7 @@
 import { parseChairSnapshot } from "@/lib/parsers/categories/chair";
 import { parseSofaSnapshot } from "@/lib/parsers/categories/sofa";
 import { parseTableSnapshot } from "@/lib/parsers/categories/table";
+import { parseHanssemPayload } from "@/lib/parsers/sites/hanssem";
 import { extractIkeaSnapshot } from "@/lib/parsers/sites/ikea";
 import { parseLivartPayload } from "@/lib/parsers/sites/livart";
 import type { ParsedFurnitureProduct } from "@/lib/parsers/shared/types";
@@ -73,6 +74,10 @@ export function parseProductPayload(params: {
 
   if (sourceSite === "livart") {
     return parseLivartPayload(raw);
+  }
+
+  if (sourceSite === "hanssem") {
+    return parseHanssemPayload(raw);
   }
 
   return null;
