@@ -24,6 +24,7 @@
     "qa:catalog-metadata-audit": "node scripts/catalog-metadata-enrichment-audit.mjs",
     "qa:mvp-browser-capability": "node scripts/mvp-browser-capability-check.mjs",
     "qa:mvp-operational-smoke": "node scripts/mvp-operational-smoke.mjs",
+    "ops:canonical-scoring:backfill": "node scripts/canonical-scoring-backfill.mjs",
     "ops:import-jobs:audit": "node scripts/import-jobs-operations.mjs audit",
     "ops:import-jobs:remediate": "node scripts/import-jobs-operations.mjs remediate",
     "ops:import-jobs:publish": "node scripts/import-jobs-operations.mjs publish",

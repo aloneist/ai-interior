@@ -3,19 +3,9 @@ export const runtime = "nodejs"
 import { NextResponse } from "next/server"
 import { getOpenAIClient } from "@/lib/server/openai"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
-import { loadRuntimeFurnitureRecordsByIds } from "@/lib/server/furniture-catalog"
+import { loadRuntimeRecommendationCatalog } from "@/lib/server/furniture-catalog"
 import type { RuntimeFurnitureRecord as FurnitureRecord } from "@/lib/server/furniture-catalog"
 import { rankFurnitureForRecommendations } from "@/lib/server/recommendation-ranking"
-
-type FurnitureVectorRow = {
-  furniture_id: string
-  brightness_compatibility: number | null
-  color_temperature_score: number | null
-  spatial_footprint_score: number | null
-  minimalism_score: number | null
-  contrast_score: number | null
-  colorfulness_score: number | null
-}
 
 type ScoredFurniture = FurnitureRecord & {
   recommendation_score: number
@@ -98,25 +88,8 @@ export async function POST(req: Request) {
     const trust_note = trustNote(trust_score)
 
     // 4) 모든 가구 벡터 + 상품 정보 가져오기
-    const { data: vectors, error: vecErr } = await supabase
-      .from("furniture_vectors")
-      .select(`
-        furniture_id,
-        brightness_compatibility,
-        color_temperature_score,
-        spatial_footprint_score,
-        minimalism_score,
-        contrast_score,
-        colorfulness_score
-      `)
-
-    if (vecErr) throw vecErr
-
-    const typedVectors = (vectors ?? []) as FurnitureVectorRow[]
-    const furnitureById = await loadRuntimeFurnitureRecordsByIds(
-      supabase,
-      typedVectors.map((item) => item.furniture_id)
-    )
+    const { vectors: typedVectors, furnitureById } =
+      await loadRuntimeRecommendationCatalog(supabase)
 
     const ranked = rankFurnitureForRecommendations({
       vectors: typedVectors,

@@ -7,7 +7,10 @@ export type ParserMetadata = {
   selected_dimension_line?: string | null;
   selected_dimension_unit?: string | null;
   range_policy_applied?: "max" | null;
+  footprint_shape?: "round" | "oval" | "l_shaped" | "irregular" | null;
   diameter_cm?: number | null;
+  width_is_diameter?: boolean;
+  depth_is_diameter?: boolean;
   derived_width_from_diameter?: boolean;
   derived_depth_from_diameter?: boolean;
   overall_height_cm?: number | null;

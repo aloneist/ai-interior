@@ -334,6 +334,12 @@ export function parseChairSnapshot(
   snapshot: RawProductSnapshot
 ): ParsedFurnitureProduct {
   const dims = extractDimensions(snapshot.dimension_section_text);
+  const footprint_shape =
+    dims.diameter_cm != null &&
+    dims.derived_width_from_diameter &&
+    dims.derived_depth_from_diameter
+      ? "round"
+      : null;
 
   return {
     product_name: snapshot.title,
@@ -358,7 +364,10 @@ export function parseChairSnapshot(
       selected_dimension_line: dims.selected_dimension_line,
       selected_dimension_unit: dims.selected_dimension_unit,
       range_policy_applied: dims.range_policy_applied,
+      footprint_shape,
       diameter_cm: dims.diameter_cm,
+      width_is_diameter: dims.derived_width_from_diameter,
+      depth_is_diameter: dims.derived_depth_from_diameter,
       derived_width_from_diameter: dims.derived_width_from_diameter,
       derived_depth_from_diameter: dims.derived_depth_from_diameter,
       site_metadata: snapshot.metadata_json ?? {},

@@ -4,7 +4,7 @@ import { NextResponse } from "next/server"
 import { getOpenAIClient } from "@/lib/server/openai"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
 import {
-  loadRuntimeFurnitureRecordsByIds,
+  loadRuntimeRecommendationCatalog,
 } from "@/lib/server/furniture-catalog"
 import {
   rankFurnitureForRecommendations,
@@ -36,16 +36,6 @@ type ScoredFurniture = GroupableFurniture &
     product_key?: string | null
     created_at?: string | null
   }
-
-type FurnitureVectorRow = {
-  furniture_id: string
-  brightness_compatibility: number | null
-  color_temperature_score: number | null
-  spatial_footprint_score: number | null
-  minimalism_score: number | null
-  contrast_score: number | null
-  colorfulness_score: number | null
-}
 
 type MvpRequestBody = {
   imageUrl?: string
@@ -191,25 +181,8 @@ export async function POST(req: Request) {
       colorfulness,
     })
 
-    const { data: vectors, error: vecErr } = await supabase
-      .from("furniture_vectors")
-      .select(`
-        furniture_id,
-        brightness_compatibility,
-        color_temperature_score,
-        spatial_footprint_score,
-        minimalism_score,
-        contrast_score,
-        colorfulness_score
-      `)
-
-    if (vecErr) throw vecErr
-
-    const typedVectors = (vectors ?? []) as FurnitureVectorRow[]
-    const furnitureById = await loadRuntimeFurnitureRecordsByIds(
-      supabase,
-      typedVectors.map((item) => item.furniture_id)
-    )
+    const { vectors: typedVectors, furnitureById } =
+      await loadRuntimeRecommendationCatalog(supabase)
 
     const ranked = rankFurnitureForRecommendations({
       vectors: typedVectors,

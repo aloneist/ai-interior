@@ -35,6 +35,7 @@ export type RankedFurniture = RuntimeFurnitureRecord & {
   ranking_context: {
     base_score: number
     final_score: number
+    vector_coverage: "present" | "missing"
     category_fit: "preferred" | "room_match" | "mismatch" | "neutral"
     room_fit: "good" | "mismatch" | "neutral"
     style_fit: "explicit" | "proxy" | "mismatch" | "neutral"
@@ -48,6 +49,9 @@ export type RankingQualitySummary = {
   candidate_count: number
   deduped_candidate_count: number
   returned_count: number
+  vector_covered_candidate_count: number
+  vector_missing_candidate_count: number
+  vector_missing_top3_count: number
   weak_result: boolean
   weak_reasons: string[]
   preferred_category_in_top3: number | null
@@ -240,6 +244,17 @@ function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)))
 }
 
+function hasVectorCoverage(vector: FurnitureVectorLike) {
+  return [
+    vector.brightness_compatibility,
+    vector.color_temperature_score,
+    vector.spatial_footprint_score,
+    vector.minimalism_score,
+    vector.contrast_score,
+    vector.colorfulness_score,
+  ].some((value) => value !== null && value !== undefined)
+}
+
 function getMetadataPenalty(
   item: RuntimeFurnitureRecord,
   userInput?: UserPreferenceInput
@@ -380,6 +395,7 @@ function sofaHasMinimalNeutralEvidence(
 function getStyleFit(params: {
   item: RuntimeFurnitureRecord
   vector: FurnitureVectorLike
+  hasVectorCoverage: boolean
   userInput?: UserPreferenceInput
 }): RankedFurniture["ranking_context"]["style_fit"] {
   const requestedStyles = getRequestedStyleTokens(params.userInput)
@@ -392,6 +408,7 @@ function getStyleFit(params: {
   )
 
   if (hasExplicitMatch) return "explicit"
+  if (!params.hasVectorCoverage) return "neutral"
 
   const hasProxyMatch = requestedStyles.some((style) =>
     vectorMatchesStyle(params.vector, style)
@@ -547,6 +564,7 @@ function getMetadataQuality(item: RuntimeFurnitureRecord) {
 }
 
 function buildWeakMatchReasons(params: {
+  vectorCoverage: RankedFurniture["ranking_context"]["vector_coverage"]
   categoryFit: RankedFurniture["ranking_context"]["category_fit"]
   roomFit: RankedFurniture["ranking_context"]["room_fit"]
   styleFit: RankedFurniture["ranking_context"]["style_fit"]
@@ -555,6 +573,10 @@ function buildWeakMatchReasons(params: {
   finalScore: number
 }) {
   const reasons: string[] = []
+
+  if (params.vectorCoverage === "missing") {
+    reasons.push("vector_scoring_unavailable")
+  }
 
   if (params.categoryFit === "mismatch") {
     reasons.push("category_mismatch")
@@ -656,6 +678,7 @@ export function rankFurnitureForRecommendations(params: {
     .map((vector): RankedFurniture | null => {
       const furniture = furnitureById.get(vector.furniture_id)
       if (!furniture) return null
+      const vectorCoverage = hasVectorCoverage(vector) ? "present" : "missing"
 
       const distance =
         DEFAULT_WEIGHTS.brightness *
@@ -686,6 +709,7 @@ export function rankFurnitureForRecommendations(params: {
       const styleFit = getStyleFit({
         item: furniture,
         vector,
+        hasVectorCoverage: vectorCoverage === "present",
         userInput,
       })
       const styleAdjustment = getStyleAdjustment(styleFit)
@@ -716,12 +740,14 @@ export function rankFurnitureForRecommendations(params: {
         ranking_context: {
           base_score: baseScore,
           final_score: finalScore,
+          vector_coverage: vectorCoverage,
           category_fit: categoryFit,
           room_fit: roomFit,
           style_fit: styleFit,
           budget_fit: budgetFit,
           metadata_quality: metadataQuality,
           weak_match_reasons: buildWeakMatchReasons({
+            vectorCoverage,
             categoryFit,
             roomFit,
             styleFit,
@@ -747,6 +773,13 @@ export function rankFurnitureForRecommendations(params: {
 
   const topItems = deduped.slice(0, limit)
   const top3 = topItems.slice(0, 3)
+  const vectorCoveredCandidateCount = deduped.filter(
+    (item) => item.ranking_context.vector_coverage === "present"
+  ).length
+  const vectorMissingCandidateCount = deduped.length - vectorCoveredCandidateCount
+  const vectorMissingTop3Count = top3.filter(
+    (item) => item.ranking_context.vector_coverage === "missing"
+  ).length
   const preferredCategoryInTop3 = userInput?.furniture?.length
     ? top3.filter((item) => item.ranking_context.category_fit === "preferred")
         .length
@@ -795,12 +828,19 @@ export function rankFurnitureForRecommendations(params: {
     weakReasons.push("weak_metadata_in_top_result")
   }
 
+  if (vectorMissingTop3Count > 0) {
+    weakReasons.push("vector_coverage_gap_in_top_result")
+  }
+
   return {
     items: topItems,
     qualitySummary: {
       candidate_count: scored.length,
       deduped_candidate_count: deduped.length,
       returned_count: topItems.length,
+      vector_covered_candidate_count: vectorCoveredCandidateCount,
+      vector_missing_candidate_count: vectorMissingCandidateCount,
+      vector_missing_top3_count: vectorMissingTop3Count,
       weak_result: weakReasons.length > 0,
       weak_reasons: weakReasons,
       preferred_category_in_top3: preferredCategoryInTop3,

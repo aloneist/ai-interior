@@ -2,19 +2,9 @@ export const runtime = "nodejs"
 
 import { NextResponse } from "next/server"
 import { getSupabaseAdminClient } from "@/lib/server/supabase-admin"
-import { loadRuntimeFurnitureRecordsByIds } from "@/lib/server/furniture-catalog"
+import { loadRuntimeRecommendationCatalog } from "@/lib/server/furniture-catalog"
 import { rankFurnitureForRecommendations } from "@/lib/server/recommendation-ranking"
 import type { UserPreferenceInput } from "@/lib/mvp/scoring"
-
-type FurnitureVectorRow = {
-  furniture_id: string
-  brightness_compatibility: number | null
-  color_temperature_score: number | null
-  spatial_footprint_score: number | null
-  minimalism_score: number
-  contrast_score: number | null
-  colorfulness_score: number | null
-}
 
 type RecommendationRequest = UserPreferenceInput & {
   brightness: number
@@ -42,28 +32,10 @@ export async function POST(req: Request) {
     } = (await req.json()) as RecommendationRequest
 
     const supabase = getSupabaseAdminClient()
-
-    const { data: vectors, error } = await supabase
-      .from("furniture_vectors")
-      .select(`
-        furniture_id,
-        brightness_compatibility,
-        color_temperature_score,
-        spatial_footprint_score,
-        minimalism_score,
-        contrast_score,
-        colorfulness_score
-      `)
-
-    if (error) throw error
-
-    const furnitureById = await loadRuntimeFurnitureRecordsByIds(
-      supabase,
-      ((vectors ?? []) as FurnitureVectorRow[]).map((item) => item.furniture_id)
-    )
+    const { vectors, furnitureById } = await loadRuntimeRecommendationCatalog(supabase)
 
     const ranked = rankFurnitureForRecommendations({
-      vectors: (vectors ?? []) as FurnitureVectorRow[],
+      vectors,
       furnitureById,
       targets: {
         brightness,

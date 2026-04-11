@@ -203,10 +203,19 @@ function buildExtractionNotes(params: {
   range_policy_applied:
     parserResult?.metadata_json?.range_policy_applied ?? null,
   diameter_cm: parserResult?.metadata_json?.diameter_cm ?? null,
+  width_is_diameter:
+    parserResult?.metadata_json?.width_is_diameter ?? null,
+  depth_is_diameter:
+    parserResult?.metadata_json?.depth_is_diameter ?? null,
   derived_width_from_diameter:
     parserResult?.metadata_json?.derived_width_from_diameter ?? false,
   derived_depth_from_diameter:
     parserResult?.metadata_json?.derived_depth_from_diameter ?? false,
+  footprint_shape: parserResult?.metadata_json?.footprint_shape ?? null,
+  overall_height_cm:
+    parserResult?.metadata_json?.overall_height_cm ?? null,
+  backrest_height_cm:
+    parserResult?.metadata_json?.backrest_height_cm ?? null,
   site_metadata: parserResult?.metadata_json?.site_metadata ?? null,
 },
       taxonomy,

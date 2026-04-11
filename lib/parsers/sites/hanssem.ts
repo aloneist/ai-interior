@@ -70,6 +70,10 @@ type HanssemDimensionSelection = {
 const HANSSEM_PARSER_VERSION = "hanssem-meta-v1";
 const HANSSEM_DIMENSION_KEYWORD_PATTERN =
   /사이즈|규격|치수|가로|세로|높이|폭|깊이|\d+\s*x\s*\d+(?:\s*x\s*\d+)?\s*(?:cm|mm|m)/i;
+const HANSSEM_WIDTH_CLASS_NOUN_PATTERN =
+  /(거실장|책장|수납장|선반|랙|렌지대|장식장|캐비닛)/i;
+const HANSSEM_SINGLE_DIMENSION_EXCLUDE_PATTERN =
+  /(높이|깊이|세로|지름|직경|반지름|좌면|등받이|팔걸이|헤드|매트|프레임 내부|내부)/i;
 
 function getHtml(raw: HanssemRawInput | null | undefined) {
   return (
@@ -322,10 +326,26 @@ function extractHanssemCategoryHint(params: {
   description: string | null;
   sourceUrl: string | null;
 }): CategoryResolution {
+  const joined = normalizeText(
+    [params.name, params.description, params.sourceUrl].filter(Boolean).join(" ")
+  );
+
+  if (/(수납침대|침대\s*프레임|침대)/i.test(joined)) {
+    return {
+      category: "bed",
+      confidence: "high",
+      scores: [
+        {
+          category: "bed",
+          score: 20,
+          matched_keywords: ["침대"],
+        },
+      ],
+    };
+  }
+
   return resolveCategory(
-    normalizeText(
-      [params.name, params.description, params.sourceUrl].filter(Boolean).join(" ")
-    )
+    joined
   );
 }
 
@@ -413,6 +433,37 @@ function parseHanssemDimensionSelection(params: {
       rangePolicyApplied:
         width.range_policy_applied ?? depth.range_policy_applied,
       source: "product_name_explicit_2d_dimensions",
+    };
+  }
+
+  const allowSingleDimensionWidthClass = params.category === "storage";
+  const singleDimensionMatches = allowSingleDimensionWidthClass
+    ? Array.from(
+        productName.matchAll(
+          /(?<![x×])(\d+(?:[.,]\d+)?(?:\s*[~\-]\s*\d+(?:[.,]\d+)?)?)\s*(cm|mm|m)\b/gi
+        )
+      )
+    : [];
+
+  if (
+    allowSingleDimensionWidthClass &&
+    singleDimensionMatches.length === 1 &&
+    HANSSEM_WIDTH_CLASS_NOUN_PATTERN.test(productName) &&
+    !HANSSEM_SINGLE_DIMENSION_EXCLUDE_PATTERN.test(productName)
+  ) {
+    const match = singleDimensionMatches[0];
+    const unit = normalizeText(match[2] ?? "").toLowerCase() || null;
+    const width = parseDimensionValueToCm(match[1], unit ?? undefined);
+
+    return {
+      width_cm: width.value_cm,
+      depth_cm: null,
+      height_cm: null,
+      rawDimensionText: productName,
+      selectedLine: match[0],
+      selectedUnit: unit,
+      rangePolicyApplied: width.range_policy_applied,
+      source: "product_name_storage_width_class",
     };
   }
 
